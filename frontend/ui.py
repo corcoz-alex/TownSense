@@ -7,14 +7,14 @@ st.markdown(
         background: #726D57;
     }
     [data-testid="stAppViewContainer"] {
-       background: #FFF6ED;
-       background: radial-gradient(circle,rgba(255, 246, 237, 1) 67%, rgba(217, 217, 217, 1) 100%);
+        background: #FFF6ED;
+        background: radial-gradient(circle,rgba(255, 246, 237, 1) 60%, rgba(199, 199, 199, 1) 100%);
         color : black;
     }
     [data-testid="stError"] {
-        background-color: #FFD2D2; /* Light red background */
+        background-color: #FFD2D2;
         color: #800000; /* Dark red text */
-        border: 1px solid #800000; /* Dark red border */
+        border: 1px solid #800000;
         border-radius: 5px;
         padding: 10px;
     }
@@ -24,26 +24,26 @@ st.markdown(
 )
 
 home_page = st.Page(
-    page="pages/home.py",
+    page="pages/home.py",  # Updated to module path
     title="Homepage",
     icon="🏙️",
     default=True,
 )
 
 detection_page = st.Page(
-    page="pages/detection.py",
+    page="pages/detection.py",  # Updated to module path
     title="TownSense",
     icon="🔍",
 )
 
 history_page = st.Page(
-    page="pages/history.py",
+    page="pages/history.py",  # Updated to module path
     title="History",
     icon="📜",
 )
 
 contact_page = st.Page(
-    page="pages/contact.py",
+    page="pages/contact.py",  # Updated to module path
     title="Contact",
     icon="📞",
 )

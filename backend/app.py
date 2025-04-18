@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from PIL import Image
 import io
+from email_handler import send_email
 from ultralytics import YOLO
 import traceback
 import logging
@@ -61,6 +62,35 @@ def upload_image():
         app.logger.error(f"Detection failed: {str(e)}")
         traceback.print_exc()
         return jsonify({"error": f"Detection failed: {str(e)}"}), 500
+
+@app.route("/send_email", methods=["POST"])
+def handle_send_email():
+    try:
+        data = request.form
+        location = data.get("location")
+        details = data.get("details")
+        file = request.files.get("image")
+
+        if not all([location, details, file]):
+            return jsonify({"status": "error", "message": "Missing data"}), 400
+
+        result = send_email(
+            location,
+            details,
+            file.read(),
+            file.filename,
+            file.content_type
+        )
+
+        if not isinstance(result, dict):
+            return jsonify({"status": "error", "message": "Unexpected email handler output"}), 500
+
+        return jsonify(result)
+
+    except Exception as e:
+        print("BACKEND ERROR:", str(e))
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, use_reloader=False)
