@@ -4,6 +4,42 @@ from PIL import Image
 from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit_extras.stylable_container import stylable_container
 
+email = st.secrets["EMAIL_ADDRESS"]
+password = st.secrets["EMAIL_PASSWORD"]
+
+def send_report_to_backend(location, details, uploaded_file):
+    try:
+        files = {
+            "image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)
+        }
+        data = {
+            "location": location,
+            "details": details
+        }
+        response = requests.post("http://localhost:5000/send_email", data=data, files=files, timeout=10)
+        return response.json()
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@st.dialog("Report form")
+def display_report_form(uploaded_file):
+    st.markdown("### 📝 Report a problem to the authorities")
+
+    location = st.text_input("📍 Location")
+    details = st.text_area("🧾 Problem Details (minimum 20 characters)")
+
+    if st.button("📤 Submit Report"):
+        if not location.strip() or len(details.strip()) < 20:
+            st.warning("Please fill all fields correctly.")
+            return
+
+        result = send_report_to_backend(location, details, uploaded_file)
+
+        if result.get("status") == "success":
+            st.success("✅ Report submitted successfully!")
+        else:
+            st.error(f"❌ Error: {result.get('message')}")
+
 # Add a white-colored box for the title
 with st.container():
     st.markdown(
@@ -46,6 +82,7 @@ with st.container():
     )
 
 add_vertical_space(2)
+status = False
 
 with st.form("upload_form"):
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
@@ -57,7 +94,7 @@ with st.form("upload_form"):
                     color: white;
                 }
                 button:focus {
-                    outline: white;
+                    outline: none;
                     box-shadow: 0 0 0 2px white;
                 }
                 """,
@@ -66,6 +103,7 @@ with st.form("upload_form"):
 
     if submitted:
         if uploaded_file:
+            st.session_state['uploaded_file'] = uploaded_file  # 🟢 Save uploaded file in session
             st.image(Image.open(uploaded_file), caption="Uploaded Image", use_container_width=True)
 
             with st.spinner("Processing your image..."):
@@ -80,16 +118,19 @@ with st.form("upload_form"):
                     model_results = data.get("detected_objects", {})
 
                     if any(model_results.values()):
+                        st.session_state['show_report_button'] = True  # 🟢 Flag to show report button
                         st.success("Objects detected:")
                         for model_name, objects in model_results.items():
                             if objects:
                                 with st.expander(f"{model_name.title()} ({len(objects)} detected)", expanded=True):
                                     for obj in objects:
-                                        st.write(f"• **{obj['name']}** ({obj['confidence']*100:.1f}%) — BBox: `{obj['bbox']}`")
+                                        st.write(
+                                            f"• **{obj['name']}** ({obj['confidence'] * 100:.1f}%) — BBox: `{obj['bbox']}`")
                             else:
                                 st.info(f"No {model_name} detected")
                     else:
                         st.warning("No objects detected in any category.")
+                        st.session_state['show_report_button'] = False
 
                 except requests.exceptions.ConnectionError:
                     st.error("Failed to connect to the backend. Please ensure the server is running.")
@@ -109,3 +150,17 @@ css = """
 """
 st.write(css, unsafe_allow_html=True)
 
+if st.session_state.get('show_report_button') and st.session_state.get('uploaded_file'):
+    col1, col2, col3 = st.columns([2, 1, 2])
+    with col2:
+        with stylable_container(
+            key="report_button",
+            css_styles="""
+                button {
+                background-color: #FF7878;
+                color: black;
+                }
+            """,
+        ):
+            if st.button("Report to authorities"):
+                display_report_form(st.session_state['uploaded_file'])

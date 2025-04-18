@@ -4,12 +4,10 @@ import requests
 import time
 from streamlit_extras.stylable_container import stylable_container
 
-# Helper to validate email
 def is_valid_email(email):
     pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
     return re.match(pattern, email) is not None
 
-# 🔧 Replace with your actual webhook URL
 WEBHOOK_URL = st.secrets["CONTACT_WEBHOOK_URL"]
 
 @st.dialog("📬 Contact Us")
@@ -38,9 +36,7 @@ def show_contact_form():
             }
 
             try:
-                # 🚀 Send to webhook
                 response = requests.post(WEBHOOK_URL, json=payload)
-
                 if response.status_code == 200:
                     st.success("✅ Thank you! Your message has been sent successfully.")
                     time.sleep(1)
@@ -50,7 +46,6 @@ def show_contact_form():
             except Exception as e:
                 st.error(f"❌ An error occurred while sending your message: {e}")
 
-# Main Page Layout
 st.markdown("<h1 style='text-align: center;'>📬 Contact Us</h1>", unsafe_allow_html=True)
 
 st.markdown("""
@@ -61,7 +56,6 @@ Press the button below to send us a message.
 </p>
 """, unsafe_allow_html=True)
 
-# Centered Button
 col1, col2, col3 = st.columns([2, 1, 2])
 with col2:
     with stylable_container(
