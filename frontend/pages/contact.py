@@ -2,6 +2,7 @@ import streamlit as st
 import re
 import requests
 import time
+from streamlit_extras.stylable_container import stylable_container
 
 # Helper to validate email
 def is_valid_email(email):
@@ -9,7 +10,7 @@ def is_valid_email(email):
     return re.match(pattern, email) is not None
 
 # 🔧 Replace with your actual webhook URL
-WEBHOOK_URL = ""
+WEBHOOK_URL = st.secrets["CONTACT_WEBHOOK_URL"]
 
 @st.dialog("📬 Contact Us")
 def show_contact_form():
@@ -63,5 +64,18 @@ Press the button below to send us a message.
 # Centered Button
 col1, col2, col3 = st.columns([2, 1, 2])
 with col2:
-    if st.button("Contact Us"):
-        show_contact_form()
+    with stylable_container(
+            key="modified_button",
+            css_styles="""
+                        button {
+                            background-color: #FF7878;
+                            color: black;
+                        }
+                        button:focus {
+                            outline: none;
+                            box-shadow: 0 0 0 2px white;
+                        }
+                        """,
+    ):
+        if st.button("Contact Us"):
+            show_contact_form()

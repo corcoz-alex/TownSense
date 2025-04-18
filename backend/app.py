@@ -4,9 +4,13 @@ from PIL import Image
 import io
 from ultralytics import YOLO
 import traceback
+import logging
 
 app = Flask(__name__)
 CORS(app)
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 
 # Load multiple YOLO models
 models = {
@@ -18,10 +22,12 @@ models = {
 def upload_image():
     try:
         if 'image' not in request.files:
+            app.logger.error("No image file provided in the request.")
             return jsonify({"error": "No image file provided."}), 400
 
         file = request.files['image']
         if file.filename == '':
+            app.logger.error("Empty filename received.")
             return jsonify({"error": "Empty filename."}), 400
 
         img_bytes = file.read()
@@ -48,11 +54,14 @@ def upload_image():
 
             combined_results[model_name] = objects
 
+        app.logger.info("Detection completed successfully.")
         return jsonify({"detected_objects": combined_results})
 
     except Exception as e:
+        app.logger.error(f"Detection failed: {str(e)}")
         traceback.print_exc()
         return jsonify({"error": f"Detection failed: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, use_reloader=False)
+
