@@ -21,14 +21,19 @@ with st.form("upload_form"):
                     response.raise_for_status()
 
                     data = response.json()
-                    results = data.get("detected_objects", [])
+                    model_results = data.get("detected_objects", {})
 
-                    if results:
+                    if any(model_results.values()):
                         st.success("Objects detected:")
-                        for obj in results:
-                            st.write(f"• **{obj['name']}** ({obj['confidence']*100:.1f}%) — BBox: `{obj['bbox']}`")
+                        for model_name, objects in model_results.items():
+                            if objects:
+                                with st.expander(f"{model_name.title()} ({len(objects)} detected)", expanded=True):
+                                    for obj in objects:
+                                        st.write(f"• **{obj['name']}** ({obj['confidence']*100:.1f}%) — BBox: `{obj['bbox']}`")
+                            else:
+                                st.info(f"No {model_name} detected")
                     else:
-                        st.warning("No objects detected.")
+                        st.warning("No objects detected in any category.")
 
                 except requests.exceptions.RequestException as e:
                     st.error(f"Request failed: {e}")
