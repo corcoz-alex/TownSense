@@ -1,0 +1,36 @@
+import streamlit as st
+import requests
+from PIL import Image
+
+st.title("🔍 AI Detection via Flask API")
+
+with st.form("upload_form"):
+    uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+    submitted = st.form_submit_button("Analyze")
+
+    if submitted:
+        if uploaded_file:
+            st.image(Image.open(uploaded_file), caption="Uploaded Image", use_container_width=True)
+
+            with st.spinner("Sending to backend..."):
+                try:
+                    files = {
+                        "image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)
+                    }
+                    response = requests.post("http://localhost:5000/upload", files=files)
+                    response.raise_for_status()
+
+                    data = response.json()
+                    results = data.get("detected_objects", [])
+
+                    if results:
+                        st.success("Objects detected:")
+                        for obj in results:
+                            st.write(f"• **{obj['name']}** ({obj['confidence']*100:.1f}%) — BBox: `{obj['bbox']}`")
+                    else:
+                        st.warning("No objects detected.")
+
+                except requests.exceptions.RequestException as e:
+                    st.error(f"Request failed: {e}")
+        else:
+            st.warning("Please upload an image.")
