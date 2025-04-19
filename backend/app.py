@@ -15,8 +15,9 @@ logging.basicConfig(level=logging.DEBUG)
 
 # Load multiple YOLO models
 models = {
-    "cigarettes": YOLO("ciggaretes.pt"),
-    "potholes": YOLO("potholes.pt"),
+    "cigarettes": YOLO("roboflow_cig.pt"),
+    "potholes": YOLO("roboflow_potholes.pt"),
+    "waste": YOLO("waste.pt")
 }
 
 @app.route('/upload', methods=['POST'])
