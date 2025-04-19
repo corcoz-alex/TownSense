@@ -4,11 +4,11 @@ import requests
 import time
 from streamlit_extras.stylable_container import stylable_container
 
+API_ENDPOINT = "http://localhost:5000/contact"
+
 def is_valid_email(email):
     pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
     return re.match(pattern, email) is not None
-
-WEBHOOK_URL = st.secrets["CONTACT_WEBHOOK_URL"]
 
 @st.dialog("📬 Contact Us")
 def show_contact_form():
@@ -27,7 +27,6 @@ def show_contact_form():
         elif len(message.strip()) < 50:
             st.warning("Your message must be at least 50 characters long.")
         else:
-            # ✅ Prepare payload for webhook
             payload = {
                 "first_name": first_name,
                 "last_name": last_name,
@@ -36,16 +35,18 @@ def show_contact_form():
             }
 
             try:
-                response = requests.post(WEBHOOK_URL, json=payload)
-                if response.status_code == 200:
+                response = requests.post(API_ENDPOINT, json=payload)
+                result = response.json()
+                if result.get("status") == "success":
                     st.success("✅ Thank you! Your message has been sent successfully.")
-                    time.sleep(1)
+                    time.sleep(1.5)
                     st.rerun()
                 else:
-                    st.error(f"❌ Failed to send message. Server returned status code {response.status_code}")
+                    st.error(f"❌ Failed: {result.get('message')}")
             except Exception as e:
                 st.error(f"❌ An error occurred while sending your message: {e}")
 
+# UI rendering
 st.markdown("<h1 style='text-align: center;'>📬 Contact Us</h1>", unsafe_allow_html=True)
 
 st.markdown("""
@@ -59,17 +60,17 @@ Press the button below to send us a message.
 col1, col2, col3 = st.columns([2, 1, 2])
 with col2:
     with stylable_container(
-            key="modified_button",
-            css_styles="""
-                        button {
-                            background-color: #FF7878;
-                            color: black;
-                        }
-                        button:focus {
-                            outline: none;
-                            box-shadow: 0 0 0 2px white;
-                        }
-                        """,
+        key="modified_button",
+        css_styles="""
+            button {
+                background-color: #FF7878;
+                color: black;
+            }
+            button:focus {
+                outline: none;
+                box-shadow: 0 0 0 2px white;
+            }
+        """,
     ):
         if st.button("Contact Us"):
             show_contact_form()

@@ -4,9 +4,6 @@ from PIL import Image
 from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit_extras.stylable_container import stylable_container
 
-email = st.secrets["EMAIL_ADDRESS"]
-password = st.secrets["EMAIL_PASSWORD"]
-
 def send_report_to_backend(location, details, uploaded_file):
     try:
         files = {

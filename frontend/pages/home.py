@@ -2,7 +2,6 @@ import streamlit as st
 import os
 import base64
 
-# Inject custom CSS for fade-in animation
 st.markdown(
     """
     <style>

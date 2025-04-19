@@ -6,6 +6,10 @@ from email_handler import send_email
 from ultralytics import YOLO
 import traceback
 import logging
+from contact_handler import handle_contact_submission
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
@@ -15,8 +19,8 @@ logging.basicConfig(level=logging.DEBUG)
 
 # Load multiple YOLO models
 models = {
-    "cigarettes": YOLO("ciggaretes.pt"),
-    "potholes": YOLO("potholes.pt"),
+    "cigarettes": YOLO("models/ciggaretes.pt"),
+    "potholes": YOLO("models/potholes.pt"),
 }
 
 @app.route('/upload', methods=['POST'])
@@ -91,6 +95,18 @@ def handle_send_email():
         print("BACKEND ERROR:", str(e))
         return jsonify({"status": "error", "message": str(e)}), 500
 
+@app.route("/contact", methods=["POST"])
+def contact():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "No data received"}), 400
+
+        result = handle_contact_submission(data)
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000, use_reloader=False)
