@@ -2,38 +2,29 @@ import streamlit as st
 import os
 import base64
 
+# if "token" not in st.session_state or not st.session_state["token"]:
+#     st.error("🔒 Please log in to access this page.")
+#     st.stop()
+
+# Get the path to your .webm file
+webm_path = os.path.join(os.path.dirname(__file__), "..", "assets", "output.webm")
+
+with open(webm_path, "rb") as video_file:
+    base64_webm = base64.b64encode(video_file.read()).decode()
+
 st.markdown(
-    """
-    <style>
-    .fade-in {
-        animation: fadeIn 2s ease-in-out;
-    }
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-        }
-        to {
-            opacity: 1;
-        }
-    }
-    </style>
+    f"""
+    <div style="text-align: center;">
+        <video width="650" autoplay loop muted playsinline>
+            <source src="data:video/webm;base64,{base64_webm}" type="video/webm">
+            Your browser does not support the video tag.
+        </video>
+    </div>
     """,
     unsafe_allow_html=True
 )
 
 col1, col2 = st.columns(2, gap="medium", vertical_alignment="center")
-with col1:
-    image_path = os.path.join(os.path.dirname(__file__), "..", "assets", "logo_placeholder.png")
-
-    with open(image_path, "rb") as image_file:
-        encoded_image = base64.b64encode(image_file.read()).decode()
-
-    st.markdown(f"""
-        <div class="fade-in">
-            <img src="data:image/png;base64,{encoded_image}" width="300">
-        </div>
-    """, unsafe_allow_html=True)
 with col2:
     st.title("Homepage", anchor = False)
     st.write("Text aici")
-
