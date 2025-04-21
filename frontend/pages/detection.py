@@ -81,7 +81,7 @@ with st.container():
 add_vertical_space(2)
 status = False
 
-with st.form("upload_form"):
+with st.form("upload_form", clear_on_submit=True):
     uploaded_file = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
     with stylable_container(
             key="modified_button",

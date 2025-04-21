@@ -1,9 +1,10 @@
 import streamlit as st
 from streamlit import Page
+from streamlit_extras.stylable_container import stylable_container
 
 
 # --- App Config ---
-st.set_page_config(page_title="TownSense")
+st.set_page_config(page_title="TownSense", layout="centered", page_icon= "assets/smaller_logo.png")
 
 # --- Global Styles ---
 st.markdown(
@@ -28,6 +29,30 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+if st.session_state.get("token") and st.session_state.get("username"):
+    with st.sidebar:
+        with stylable_container(
+            key="logout_red_button",
+            css_styles="""
+                button {
+                    background-color: #FF4B4B;
+                    color: white;
+                    font-weight: bold;
+                    border-radius: 6px;
+                    padding: 8px 16px;
+                }
+                button:hover {
+                    background-color: #d13a3a;
+                }
+            """,
+        ):
+            st.button("Logout", key="logout_sidebar_button", on_click=lambda: st.session_state.clear())
+
+if st.session_state.get("token") and st.session_state.get("username"):
+    username = st.session_state["username"]
+    st.sidebar.text(f"{username}")
+
+
 pg = st.navigation(pages=[
     Page(page="pages/account.py", title="Account", icon="👤", default=True),
     Page(page="pages/home.py", title="Homepage", icon="🏙️"),
@@ -37,24 +62,12 @@ pg = st.navigation(pages=[
 ])
 pg.run()
 
-if st.session_state.get("token") and st.session_state.get("username"):
-    username = st.session_state["username"]
-    st.markdown(
-        f"""
-        <style>
-        .sidebar-user {{
-            position: fixed;
-            bottom: 15px;
-            left: 16px;
-            color: #ddd;
-            font-size: 13px;
-            font-style: italic;
-            z-index: 999;
-        }}
-        </style>
-        <div class="sidebar-user">
-            👤 Logged in as <b>{username}</b>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+# Hides streamlit toolbar
+hide_st_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            header {visibility: hidden;}
+            </style>
+            """
+st.markdown(hide_st_style, unsafe_allow_html=True)
