@@ -101,7 +101,8 @@ with st.form("upload_form", clear_on_submit=True):
     if submitted:
         if uploaded_file:
             st.session_state['uploaded_file'] = uploaded_file  # 🟢 Save uploaded file in session
-            st.image(Image.open(uploaded_file), caption="Uploaded Image", use_container_width=True)
+            st.text("Original Image:")
+            st.image(Image.open(uploaded_file), use_container_width=True)
 
             with st.spinner("Processing your image..."):
                 try:
@@ -113,13 +114,20 @@ with st.form("upload_form", clear_on_submit=True):
 
                     data = response.json()
                     model_results = data.get("detected_objects", {})
+                    # Display annotated image from backend
+                    if "image" in data and any(model_results.values()):
+                        st.text("Image with detected objects:")
+                        st.image(
+                            f"data:image/png;base64,{data['image']}",
+                            use_container_width=True
+                        )
 
                     if any(model_results.values()):
                         st.session_state['show_report_button'] = True  # 🟢 Flag to show report button
                         st.success("Objects detected:")
                         for model_name, objects in model_results.items():
                             if objects:
-                                with st.expander(f"{model_name.title()} ({len(objects)} detected)", expanded=True):
+                                with st.expander(f"{model_name.title()} ({len(objects)} detected)", expanded=False):
                                     for obj in objects:
                                         st.write(
                                             f"• **{obj['name']}** ({obj['confidence'] * 100:.1f}%) — BBox: `{obj['bbox']}`")
@@ -159,5 +167,5 @@ if st.session_state.get('show_report_button') and st.session_state.get('uploaded
                 }
             """,
         ):
-            if st.button("Report to authorities"):
+            if st.button("Send Report"):
                 display_report_form(st.session_state['uploaded_file'])

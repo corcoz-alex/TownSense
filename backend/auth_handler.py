@@ -38,13 +38,6 @@ def login_user(username_or_email, password):
 
     return {"status": "success", "user_id": str(user['_id']), "username": user['username']}
 
-# --- Forgot Username ---
-def find_username_by_email(email):
-    user = users_collection.find_one({"email": email})
-    if not user:
-        return {"status": "error", "message": "Email not found."}
-    return {"status": "success", "username": user['username']}
-
 # --- Request Password Reset Code ---
 def request_password_reset_code(email):
     user = users_collection.find_one({"email": email})

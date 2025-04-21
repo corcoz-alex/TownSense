@@ -12,6 +12,34 @@ if "token" not in st.session_state:
 if "reset_step" not in st.session_state:
     st.session_state.reset_step = 1
 
+st.markdown("""
+<style>
+    [data-testid="stExpander"] {
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        padding: 10px;
+    }
+    [data-testid="stExpander"] > div {
+        background-color: white;
+    }
+    [data-testid="stTextInput"] input,
+    [data-testid="stTextArea"] textarea {
+        background-color: #f9f9f9;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 14px;
+    }
+    [data-testid="stTextInput"] input:focus,
+    [data-testid="stTextArea"] textarea:focus {
+        outline: none;
+        border: 1px solid #726d57;
+        box-shadow: 0 0 0 1px #726d57;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # --- Logged-in View ---
 if st.session_state.token:
     st.title(f"👤 Welcome, {st.session_state.get('username', 'User')}!")
@@ -75,22 +103,6 @@ else:
             except Exception as e:
                 st.error("⚠️ Failed to connect or parse backend response.")
                 st.write(str(e))
-
-        with st.expander("Forgot your username?"):
-            email = st.text_input("Enter your email")
-            if st.button("Find Username"):
-                try:
-                    res = requests.post(f"{API_BASE}/forgot-username", json={"email": email})
-                    data = res.json()
-                    if data.get("status") == "success":
-                        st.info(f"Your username is: {data['username']}")
-                    else:
-                        st.error(data.get("message"))
-                except Exception:
-                    st.error("⚠️ Failed to connect or parse backend response.")
-                    st.write("Status Code:", res.status_code)
-                    st.write("Raw Text:", res.text)
-
         with st.expander("Reset your password"):
             if st.session_state.reset_step == 1:
                 email = st.text_input("Enter your email to receive a reset code")

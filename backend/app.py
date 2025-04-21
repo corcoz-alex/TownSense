@@ -4,27 +4,27 @@ from PIL import Image
 import io
 import jwt
 import os
-from email_handler import send_email
-from ultralytics import YOLO
 import datetime
 import logging
+import base64
+import numpy as np
+from dotenv import load_dotenv
+from email_handler import send_email
+from ultralytics import YOLO
 from contact_handler import handle_contact_submission
+from visuals import draw_custom_boxes
 from auth_handler import (
     register_user,
     login_user,
-    find_username_by_email,
     request_password_reset_code,
     verify_reset_code_and_update_password,
 )
-from dotenv import load_dotenv
-
 
 load_dotenv()
 
 print("✅ Flask app starting...")
 print("MONGO URI:", os.getenv("COSMOSDB_URI"))
 print("JWT Secret:", os.getenv("JWT_SECRET"))
-
 
 app = Flask(__name__)
 CORS(app)
@@ -34,19 +34,17 @@ JWT_EXPIRY_MINUTES = int(os.getenv("JWT_EXPIRY_MINUTES", 60))
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
-
-# Disable mongo logs
-logging.getLogger("pymongo").setLevel(logging.ERROR)
+logging.getLogger("pymongo").setLevel(logging.ERROR)  # Disable Mongo spam
 
 # Load multiple YOLO models
 models = {
-    "cigarettes": YOLO("models/roboflow_cig.pt"),
+#    "cigarettes": YOLO("models/roboflow_cig.pt"),
     "potholes": YOLO("models/roboflow_potholes.pt"),
-    "waste": YOLO("models/waste.pt"),
+#    "waste": YOLO("models/waste.pt"),
     "garbage_detection": YOLO("models/garbage_detector.pt"),
 }
 
-# --- Warm up models once on startup ---
+# Warm up models once on startup
 dummy_image = Image.new("RGB", (640, 416))
 try:
     for name, model in models.items():
@@ -57,8 +55,6 @@ except Exception as e:
 
 @app.route('/upload', methods=['POST'])
 def upload_image():
-    import time
-    start_time = time.time()
     try:
         if 'image' not in request.files:
             app.logger.error("No image file provided in the request.")
@@ -70,19 +66,18 @@ def upload_image():
             return jsonify({"error": "Empty filename."}), 400
 
         img_bytes = file.read()
-        app.logger.info(f"Received image: {file.filename}, size: {len(img_bytes)} bytes")
-
         image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        annotated = np.array(image)  # Convert to NumPy for OpenCV
 
         combined_results = {}
-        for model_name, model in models.items():
-            model_start = time.time()
-            results = model(image)
-            model_duration = time.time() - model_start
-            app.logger.info(f"Model '{model_name}' inference took {model_duration:.2f} sec")
 
+        for model_name, model in models.items():
+            results = model(image)
             objects = []
+
             for result in results:
+                draw_custom_boxes(annotated, result, model_name)
+
                 boxes = result.boxes.xyxy.cpu().numpy()
                 confidences = result.boxes.conf.cpu().numpy()
                 classes = result.boxes.cls.cpu().numpy()
@@ -93,11 +88,19 @@ def upload_image():
                         "confidence": round(float(confidence), 3),
                         "bbox": [round(coord, 2) for coord in box.tolist()]
                     })
+
             combined_results[model_name] = objects
 
-        total_time = time.time() - start_time
-        app.logger.info(f"Detection completed in {total_time:.2f} seconds.")
-        return jsonify({"detected_objects": combined_results})
+        # Encode final image with all annotations
+        annotated_image = Image.fromarray(annotated)
+        buffered = io.BytesIO()
+        annotated_image.save(buffered, format="PNG")
+        encoded_image = base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+        return jsonify({
+            "detected_objects": combined_results,
+            "image": encoded_image
+        })
 
     except Exception as e:
         app.logger.exception("Detection failed")
@@ -145,7 +148,7 @@ def contact():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# --- Helper: Generate JWT ---
+# JWT helper
 def generate_token(user_id):
     payload = {
         "user_id": user_id,
@@ -154,18 +157,15 @@ def generate_token(user_id):
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
     return token
 
-# --- Register ---
 @app.route("/register", methods=["POST"])
 def register():
     data = request.json
     email = data.get("email")
     username = data.get("username")
     password = data.get("password")
-
     result = register_user(email, username, password)
     return jsonify(result)
 
-# --- Login ---
 @app.route("/login", methods=["POST"])
 def login():
     data = request.json
@@ -178,14 +178,6 @@ def login():
         return jsonify({"status": "success", "token": token, "username": result["username"]})
     return jsonify(result)
 
-# --- Forgot Username ---
-@app.route("/forgot-username", methods=["POST"])
-def forgot_username():
-    data = request.json
-    email = data.get("email")
-    result = find_username_by_email(email)
-    return jsonify(result)
-
 @app.route("/request-reset-code", methods=["POST"])
 def request_reset_code():
     data = request.json
@@ -193,7 +185,6 @@ def request_reset_code():
     result = request_password_reset_code(email)
     return jsonify(result)
 
-# --- Verify Reset Code and Set New Password ---
 @app.route("/reset-password", methods=["POST"])
 def reset_password_route():
     data = request.json
