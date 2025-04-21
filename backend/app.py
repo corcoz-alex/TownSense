@@ -40,8 +40,10 @@ logging.getLogger("pymongo").setLevel(logging.ERROR)
 
 # Load multiple YOLO models
 models = {
-    "cigarettes": YOLO("models/ciggaretes.pt"),
-    "potholes": YOLO("models/potholes.pt"),
+    "cigarettes": YOLO("models/roboflow_cig.pt"),
+    "potholes": YOLO("models/roboflow_potholes.pt"),
+    "waste": YOLO("models/waste.pt"),
+    "garbage_detection": YOLO("models/garbage_detector.pt"),
 }
 
 # --- Warm up models once on startup ---
