@@ -1,3 +1,4 @@
 import streamlit as st
 
-st.title("History Page")
+def show_history():
+    st.title("History Page")
