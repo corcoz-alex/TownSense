@@ -10,12 +10,19 @@ def api_url(path):
     return f"{API_BASE}/{path}"
 
 def post_api(path, payload):
+    # Check if backend is available
+    if not st.session_state.get("backend_available", False):
+        st.warning("⚠️ Cannot connect to backend server")
+        return {"status": "error", "message": "Backend server not available"}
+    
     try:
-        res = requests.post(api_url(path), json=payload)
+        res = requests.post(api_url(path), json=payload, timeout=5)  # Add timeout
         return res.json()
+    except requests.exceptions.Timeout:
+        st.error("⚠️ Request to backend timed out")
+        return {"status": "error", "message": "Request timed out"}
     except Exception as e:
         st.error("⚠️ Failed to connect to the backend.")
-        st.exception(e)
         return {"status": "error", "message": str(e)}
 
 def handle_password_reset():
@@ -67,6 +74,8 @@ def show_account():
         st.session_state.token = None
     if "reset_step" not in st.session_state:
         st.session_state.reset_step = 1
+    if "backend_available" not in st.session_state:
+        st.session_state.backend_available = True  # Default to True
 
     # --- Global Style Injection ---
     st.markdown("""
@@ -186,3 +195,4 @@ def show_account():
                             st.rerun()
                         else:
                             st.error(data.get("message"))
+

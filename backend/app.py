@@ -53,6 +53,11 @@ try:
 except Exception as e:
     app.logger.exception("Error during model warmup")
 
+# Add a simple health check endpoint
+@app.route('/', methods=['GET'])
+def health_check():
+    return jsonify({"status": "ok", "message": "Backend server is running"})
+
 @app.route('/upload', methods=['POST'])
 def upload_image():
     try:
@@ -196,3 +201,4 @@ def reset_password_route():
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+

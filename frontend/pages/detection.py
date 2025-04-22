@@ -5,6 +5,18 @@ from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit_extras.stylable_container import stylable_container
 
 def show_detection():
+    # Check if backend is available
+    if not st.session_state.get("backend_available", False):
+        st.warning("⚠️ This feature requires connection to the backend server, which is currently unavailable.")
+        if st.button("Retry Connection"):
+            try:
+                requests.get("http://localhost:5000/", timeout=0.5)
+                st.session_state.backend_available = True
+                st.rerun()
+            except:
+                st.error("Still unable to connect to backend server")
+        return
+
     def send_report_to_backend(location, details, uploaded_file):
         try:
             files = {

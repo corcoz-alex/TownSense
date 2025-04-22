@@ -7,6 +7,18 @@ from streamlit_extras.stylable_container import stylable_container
 def show_contact():
     API_ENDPOINT = "http://localhost:5000/contact"
 
+    # Check if backend is available before showing contact button
+    if not st.session_state.get("backend_available", False):
+        st.warning("⚠️ Contact form requires connection to the backend server, which is currently unavailable.")
+        if st.button("Retry Connection"):
+            try:
+                requests.get("http://localhost:5000/", timeout=0.5)
+                st.session_state.backend_available = True
+                st.rerun()
+            except:
+                st.error("Still unable to connect to backend server")
+        return
+
     def is_valid_email(email):
         pattern = r"^[\w\.-]+@[\w\.-]+\.\w+$"
         return re.match(pattern, email) is not None
@@ -74,3 +86,4 @@ def show_contact():
         ):
             if st.button("Contact Us"):
                 show_contact_form()
+
