@@ -25,7 +25,7 @@ styles = {
     "nav": {
         "background-color": "#ffffff",
         "justify-content": "left",
-        "font-family": "Tahoma, sans-serif"
+        "font-family": "Verdana, sans-serif"
     },
     "img": {
         "padding-right": "14px",

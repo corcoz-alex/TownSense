@@ -2,10 +2,8 @@ import streamlit as st
 import requests
 from streamlit_extras.stylable_container import stylable_container
 
-# --- Constants ---
 API_BASE = "http://localhost:5000"
 
-# --- Style ---
 purple_button_style = """
     button {
         background-color: #775cff;
@@ -20,7 +18,6 @@ purple_button_style = """
     }
 """
 
-# --- Helpers ---
 def api_url(path):
     return f"{API_BASE}/{path}"
 

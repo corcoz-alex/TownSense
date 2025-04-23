@@ -26,7 +26,8 @@ def send_report_to_backend(location, details, uploaded_file):
         }
         data = {
             "location": location,
-            "details": details
+            "details": details,
+            "username": st.session_state.get("username", "anonymous")  # <-- pass username
         }
         response = requests.post("http://localhost:5000/send_email", data=data, files=files, timeout=10)
         return response.json()

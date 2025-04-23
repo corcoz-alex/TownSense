@@ -12,7 +12,9 @@ from dotenv import load_dotenv
 from email_handler import send_email
 from ultralytics import YOLO
 from contact_handler import handle_contact_submission
+from report_handler import get_reports_by_username
 from visuals import draw_custom_boxes
+from report_handler import save_user_report
 from auth_handler import (
     register_user,
     login_user,
@@ -117,27 +119,22 @@ def handle_send_email():
         data = request.form
         location = data.get("location")
         details = data.get("details")
+        username = data.get("username")  # <- NEW!
         file = request.files.get("image")
 
-        if not all([location, details, file]):
-            app.logger.warning("Missing data in send_email")
+        if not all([location, details, file, username]):
             return jsonify({"status": "error", "message": "Missing data"}), 400
 
-        app.logger.info(f"Sending email for report at '{location}'")
+        # Save to DB
+        save_result = save_user_report(username, location, details, file.read())
+        if save_result["status"] != "success":
+            return jsonify(save_result), 500
 
-        result = send_email(
-            location,
-            details,
-            file.read(),
-            file.filename,
-            file.content_type
-        )
-
-        app.logger.info(f"Email send result: {result}")
+        file.stream.seek(0)
+        result = send_email(location, details, file.read(), file.filename, file.content_type)
         return jsonify(result)
 
     except Exception as e:
-        app.logger.exception("Email sending failed")
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/contact", methods=["POST"])
@@ -198,6 +195,35 @@ def reset_password_route():
     new_password = data.get("new_password")
     result = verify_reset_code_and_update_password(email, code, new_password)
     return jsonify(result)
+
+@app.route("/get_reports", methods=["POST"])
+def get_reports():
+    try:
+        data = request.json
+        username = data.get("username")
+        if not username:
+            return jsonify({"status": "error", "message": "Missing username"}), 400
+
+        result = get_reports_by_username(username)
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/clear_reports", methods=["POST"])
+def clear_reports():
+    try:
+        data = request.json
+        username = data.get("username")
+        if not username:
+            return jsonify({"status": "error", "message": "Missing username"}), 400
+
+        from db import reports_collection
+        result = reports_collection.delete_many({"username": username})
+        return jsonify({"status": "success", "deleted": result.deleted_count})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
