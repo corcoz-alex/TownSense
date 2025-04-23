@@ -1,43 +1,75 @@
+import os
 import streamlit as st
 from streamlit_navigation_bar import st_navbar
-import pages as pg
-import requests
-import time
+import pages as pg  # your pages/__init__.py must import all functions
 
-st.set_page_config(
-    page_title="TownSense",
-    layout="wide",
-    page_icon="assets/smaller_logo.png",
-    initial_sidebar_state="collapsed"
+# --- App Config ---
+st.set_page_config(page_title="TownSense", layout="centered", page_icon="assets/smaller_logo.png")
+
+st.markdown("""
+<style>
+    .stButton>button:hover {
+        border-color: transparent !important;
+    }
+    form.stButton button:hover {
+    border-color: transparent !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+
+# --- Navbar Config ---
+pages = ["Homepage", "TownSense", "History", "Contact", "Account"]
+logo_path = os.path.join(os.path.dirname(__file__), "assets", "small_name_logo.svg")
+styles = {
+    "nav": {
+        "background-color": "#ffffff",
+        "justify-content": "left",
+        "font-family": "Tahoma, sans-serif"
+    },
+    "img": {
+        "padding-right": "14px",
+    },
+    "span": {
+        "color": "black",  # 🎨 black text
+        "padding": "14px",
+        "transition": "all 0.5s ease-in-out",
+    },
+    "active": {
+        "background-color": "white",
+        "color": "black",
+        "padding": "14px",
+    },
+    "hover": {
+        "color": "#775cff",
+        "background-color": "#f7f7f7",
+        "padding": "14px",
+        "transition": "all 0.5s ease-in-out",
+    }
+}
+options = {
+    "show_menu": False,
+    "show_sidebar": False,
+}
+
+# --- Render Navigation Bar ---
+page = st_navbar(
+    pages=pages,
+    logo_path=logo_path,
+    styles=styles,
+    options=options,
 )
 
-# Initialize session state for backend connectivity
-if "backend_available" not in st.session_state:
-    try:
-        # Test connection with short timeout
-        requests.get("http://localhost:5000/", timeout=0.5)
-        st.session_state.backend_available = True
-    except requests.exceptions.RequestException:
-        st.session_state.backend_available = False
+# --- Page Routing ---
+functions = {
+    "Homepage": pg.home,
+    "TownSense": pg.detection,
+    "History": pg.history,
+    "Contact": pg.contact,
+    "Account": pg.account
+}
 
-# Display backend status warning if needed
-if not st.session_state.get("backend_available", False):
-    st.warning("⚠️ Backend server is not available. Some features may not work properly.")
-    # Add a button to retry connection
-    if st.button("Retry Connection"):
-        try:
-            requests.get("http://localhost:5000/", timeout=0.5)
-            st.session_state.backend_available = True
-            st.rerun()
-        except:
-            pass
-
-page = st_navbar(
-    ["Account", "Homepage", "TownSense", "History", "Contact"],)
-
-if page == "Account":
-    pg.show_account()
-elif page == "Homepage":
+if page == "Homepage":
     pg.show_home()
 elif page == "TownSense":
     pg.show_detection()
@@ -45,3 +77,9 @@ elif page == "History":
     pg.show_history()
 elif page == "Contact":
     pg.show_contact()
+elif page == "Account":
+    pg.show_account()
+else:
+    pg.show_account()
+
+

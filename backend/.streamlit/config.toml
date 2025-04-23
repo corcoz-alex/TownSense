@@ -1,9 +1,0 @@
-[client]
-toolbarMode = "viewer"
-
-[theme]
-primaryColor = "#000000"
-textColor = "#000000"
-
-[theme.sidebar]
-textColor = "#FFFFFF"

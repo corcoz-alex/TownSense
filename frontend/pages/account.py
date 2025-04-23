@@ -5,18 +5,31 @@ from streamlit_extras.stylable_container import stylable_container
 # --- Constants ---
 API_BASE = "http://localhost:5000"
 
+# --- Style ---
+purple_button_style = """
+    button {
+        background-color: #775cff;
+        color: white;
+        border-radius: 6px;
+        padding: 8px 16px;
+        transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+    }
+    button:hover {
+        background-color: #4f2ef3;
+        color: white;
+    }
+"""
+
 # --- Helpers ---
 def api_url(path):
     return f"{API_BASE}/{path}"
 
 def post_api(path, payload):
-    # Check if backend is available
     if not st.session_state.get("backend_available", False):
         st.warning("⚠️ Cannot connect to backend server")
         return {"status": "error", "message": "Backend server not available"}
-    
     try:
-        res = requests.post(api_url(path), json=payload, timeout=5)  # Add timeout
+        res = requests.post(api_url(path), json=payload, timeout=5)
         return res.json()
     except requests.exceptions.Timeout:
         st.error("⚠️ Request to backend timed out")
@@ -28,14 +41,15 @@ def post_api(path, payload):
 def handle_password_reset():
     if st.session_state.reset_step == 1:
         email = st.text_input("Enter your email to receive a reset code")
-        if st.button("Send Reset Code"):
-            data = post_api("request-reset-code", {"email": email})
-            if data.get("status") == "success":
-                st.session_state.reset_email = email
-                st.session_state.reset_step = 2
-                st.rerun()
-            else:
-                st.error(data.get("message"))
+        with stylable_container("send_reset_button", css_styles=purple_button_style):
+            if st.button("Send Reset Code"):
+                data = post_api("request-reset-code", {"email": email})
+                if data.get("status") == "success":
+                    st.session_state.reset_email = email
+                    st.session_state.reset_step = 2
+                    st.rerun()
+                else:
+                    st.error(data.get("message"))
 
     elif st.session_state.reset_step == 2:
         st.success("✅ Reset code sent. Please check your email.")
@@ -43,31 +57,32 @@ def handle_password_reset():
         new_password = st.text_input("New password", type="password")
         confirm_password = st.text_input("Confirm new password", type="password")
 
-        if st.button("Reset Password"):
-            if new_password != confirm_password:
-                st.warning("Passwords do not match")
-                return
-            payload = {
-                "email": st.session_state.reset_email,
-                "code": code,
-                "new_password": new_password
-            }
-            data = post_api("reset-password", payload)
-            if data.get("status") == "success":
-                st.success("✅ Password reset successfully. Please log in.")
-                st.session_state.auth_mode = "login"
+        with stylable_container("reset_password_button", css_styles=purple_button_style):
+            if st.button("Reset Password"):
+                if new_password != confirm_password:
+                    st.warning("Passwords do not match")
+                    return
+                payload = {
+                    "email": st.session_state.reset_email,
+                    "code": code,
+                    "new_password": new_password
+                }
+                data = post_api("reset-password", payload)
+                if data.get("status") == "success":
+                    st.success("✅ Password reset successfully. Please log in.")
+                    st.session_state.auth_mode = "login"
+                    st.session_state.reset_step = 1
+                    st.rerun()
+                else:
+                    st.error(data.get("message"))
+
+        with stylable_container("cancel_reset_button", css_styles=purple_button_style):
+            if st.button("Cancel Reset"):
                 st.session_state.reset_step = 1
                 st.rerun()
-            else:
-                st.error(data.get("message"))
 
-        if st.button("Cancel Reset"):
-            st.session_state.reset_step = 1
-            st.rerun()
-
-# --- Main UI Entry ---
+# --- Main UI ---
 def show_account():
-    # --- Initial State ---
     if "auth_mode" not in st.session_state:
         st.session_state.auth_mode = "login"
     if "token" not in st.session_state:
@@ -75,9 +90,8 @@ def show_account():
     if "reset_step" not in st.session_state:
         st.session_state.reset_step = 1
     if "backend_available" not in st.session_state:
-        st.session_state.backend_available = True  # Default to True
+        st.session_state.backend_available = True
 
-    # --- Global Style Injection ---
     st.markdown("""
     <style>
         [data-testid="stExpander"] {
@@ -106,60 +120,51 @@ def show_account():
     </style>
     """, unsafe_allow_html=True)
 
-    # --- Logged In View ---
     if st.session_state.token:
         st.title(f"👤 Welcome, {st.session_state.get('username', 'User')}!")
         st.markdown("---")
         st.markdown("### ✏️ Account Customization")
-
         st.text_input("Change display name", value=st.session_state.get("username", ""))
         st.text_area("Bio")
         st.file_uploader("Profile picture", type=["jpg", "jpeg", "png"])
-        st.button("Save Changes")
+        with stylable_container("save_changes_button", css_styles=purple_button_style):
+            st.button("Save Changes")
         st.info("This section is for demo only. Profile updates not yet implemented.")
 
         st.markdown("---")
         col1, col2, col3 = st.columns([2, 1, 2])
         with col1:
-            with stylable_container(
-                key="logout_button",
-                css_styles="""
-                    button {
-                        background-color: #FF7878;
-                        color: black;
-                    }
-                    button:focus {
-                        outline: none;
-                        box-shadow: 0 0 0 2px white;
-                    }
-                """,
-            ):
+            with stylable_container("logout_button", css_styles=purple_button_style):
                 if st.button("Logout"):
                     st.session_state.clear()
                     st.rerun()
 
     else:
-        # --- Auth Toggle ---
         if st.session_state.auth_mode == "login":
             st.title("🔐 Login")
-            if st.button("Don't have an account? Register here"):
-                st.session_state.auth_mode = "register"
-                st.rerun()
+            with stylable_container("switch_to_register", css_styles=purple_button_style):
+                if st.button("Don't have an account? Register here"):
+                    st.session_state.auth_mode = "register"
+                    st.rerun()
         else:
             st.title("📝 Register")
-            if st.button("Already have an account? Log in here"):
-                st.session_state.auth_mode = "login"
-                st.rerun()
+            with stylable_container("switch_to_login", css_styles=purple_button_style):
+                if st.button("Already have an account? Log in here"):
+                    st.session_state.auth_mode = "login"
+                    st.rerun()
 
-        # --- Login Form ---
         if st.session_state.auth_mode == "login":
             with st.form("login_form"):
                 username_or_email = st.text_input("Username or Email")
                 password = st.text_input("Password", type="password")
-                submitted = st.form_submit_button("Login")
+                with stylable_container("login_button", css_styles=purple_button_style):
+                    submitted = st.form_submit_button("Login")
 
                 if submitted:
-                    data = post_api("login", {"username_or_email": username_or_email, "password": password})
+                    data = post_api("login", {
+                        "username_or_email": username_or_email,
+                        "password": password
+                    })
                     if data.get("status") == "success":
                         st.session_state.token = data["token"]
                         st.session_state.username = data["username"]
@@ -171,14 +176,14 @@ def show_account():
             with st.expander("Reset your password"):
                 handle_password_reset()
 
-        # --- Register Form ---
-        if st.session_state.auth_mode == "register":
+        elif st.session_state.auth_mode == "register":
             with st.form("register_form"):
                 email = st.text_input("Email")
                 username = st.text_input("Username")
                 password = st.text_input("Password", type="password")
                 confirm_password = st.text_input("Confirm Password", type="password")
-                submitted = st.form_submit_button("Register")
+                with stylable_container("register_button", css_styles=purple_button_style):
+                    submitted = st.form_submit_button("Register")
 
                 if submitted:
                     if password != confirm_password:
@@ -195,4 +200,3 @@ def show_account():
                             st.rerun()
                         else:
                             st.error(data.get("message"))
-

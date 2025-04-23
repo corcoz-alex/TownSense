@@ -1,9 +1,9 @@
-[client]
-toolbarMode = "viewer"
+[server]
+enableStaticServing = false
 
 [theme]
-primaryColor = "#000000"
+base = "light"
+primaryColor = "#f7f7f7"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f5f5f5"
 textColor = "#000000"
-
-[theme.sidebar]
-textColor = "#FFFFFF"
