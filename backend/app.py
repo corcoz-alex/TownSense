@@ -41,9 +41,9 @@ logging.getLogger("pymongo").setLevel(logging.ERROR)  # Disable Mongo spam
 # Load multiple YOLO models
 models = {
 #    "cigarettes": YOLO("models/roboflow_cig.pt"),
-    "potholes": YOLO("models/roboflow_potholes.pt"),
+    "potholes": YOLO("backend/models/roboflow_potholes.pt"),
 #    "waste": YOLO("models/waste.pt"),
-    "garbage_detection": YOLO("models/garbage_detector.pt"),
+    "garbage_detection": YOLO("backend/models/garbage_detector.pt"),
 }
 
 # Warm up models once on startup
@@ -223,7 +223,6 @@ def clear_reports():
         return jsonify({"status": "success", "deleted": result.deleted_count})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

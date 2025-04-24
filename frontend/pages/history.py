@@ -3,22 +3,10 @@ import requests
 from datetime import datetime
 import pytz
 from streamlit_extras.stylable_container import stylable_container
+from frontend.styles import purple_button_style
 
 API_URL = "http://localhost:5000/get_reports"
 
-purple_button_style = """
-    button {
-        background-color: #775cff;
-        color: white;
-        border-radius: 6px;
-        padding: 8px 16px;
-        transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
-    }
-    button:hover {
-        background-color: #4f2ef3;
-        color: white;
-    }
-"""
 
 @st.cache_data(ttl=60)
 def fetch_user_reports(username):
@@ -45,11 +33,11 @@ def clear_user_history(username):
 
 
 def show_history():
-    st.title("📖 Your Report History")
+    if "token" not in st.session_state or not st.session_state["token"]:
+        st.error("🔒 Please log in to access this page.")
+        st.stop()
 
-    if "username" not in st.session_state:
-        st.warning("You must be logged in to view your history.")
-        return
+    st.title("📖 Your Report History")
 
     # --- Refresh Logic ---
     col1, col2, col3 = st.columns([2, 1, 2])

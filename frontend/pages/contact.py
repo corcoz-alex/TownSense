@@ -61,6 +61,9 @@ def show_contact_form():
                     st.error(f"❌ An error occurred while sending your message: {e}")
 
 def show_contact():
+    if "token" not in st.session_state or not st.session_state["token"]:
+        st.error("🔒 Please log in to access this page.")
+        st.stop()
     if not st.session_state.get("backend_available", False):
         st.warning("⚠️ Contact form requires connection to the backend server, which is currently unavailable.")
         if st.button("Retry Connection"):

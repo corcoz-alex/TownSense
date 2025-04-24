@@ -1,9 +1,6 @@
-# backend/visuals.py
-
 import cv2
 import numpy as np
 
-# Base RGB colors per model
 MODEL_COLORS = {
     "potholes": (0, 255, 0),             # Green
     "garbage_detection": (255, 165, 0),  # Orange
@@ -11,7 +8,6 @@ MODEL_COLORS = {
 
 def adjust_color_for_confidence(base_color, confidence):
     """
-    Scales the RGB color toward white based on confidence.
     High confidence → darker color
     Low confidence → lighter color
     """
@@ -26,7 +22,7 @@ def adjust_color_for_confidence(base_color, confidence):
     return (r, g, b)
 
 def draw_custom_boxes(image, result, model_name, show_conf=True, font_scale=0.5, box_thickness=2):
-    base_color = MODEL_COLORS.get(model_name, (255, 255, 255))  # Default: white
+    base_color = MODEL_COLORS.get(model_name, (255, 255, 255))
 
     for box, conf, cls in zip(
         result.boxes.xyxy.cpu().numpy(),
@@ -47,6 +43,6 @@ def draw_custom_boxes(image, result, model_name, show_conf=True, font_scale=0.5,
         (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, font_scale, 1)
         cv2.rectangle(image, (x1, y1 - th - 4), (x1 + tw + 4, y1), color, -1)
 
-        # Draw label text (black for contrast)
+        # Draw label text
         cv2.putText(image, text, (x1 + 2, y1 - 4), cv2.FONT_HERSHEY_SIMPLEX, font_scale, (0, 0, 0), 1)
 

@@ -3,20 +3,7 @@ import requests
 from PIL import Image
 from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit_extras.stylable_container import stylable_container
-
-purple_button_style = """
-    button {
-        background-color: #775cff;
-        color: white;
-        border-radius: 6px;
-        padding: 8px 16px;
-        transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
-    }
-    button:hover {
-        background-color: #4f2ef3;
-        color: white;
-    }
-"""
+from frontend.styles import purple_button_style
 
 # --- Helpers ---
 def send_report_to_backend(location, details, uploaded_file):
@@ -52,6 +39,9 @@ def display_report_form(uploaded_file):
 
 # --- Page ---
 def show_detection():
+    if "token" not in st.session_state or not st.session_state["token"]:
+        st.error("🔒 Please log in to access this page.")
+        st.stop()
     st.markdown("""
     <style>
         .title-box {

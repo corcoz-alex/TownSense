@@ -1,22 +1,41 @@
 import streamlit as st
 import requests
+import base64
+import os
 from streamlit_extras.stylable_container import stylable_container
+from streamlit_cookies_manager import EncryptedCookieManager
+from frontend.styles import purple_button_style, hover_text_purple
 
 API_BASE = "http://localhost:5000"
 
-purple_button_style = """
-    button {
-        background-color: #775cff;
-        color: white;
-        border-radius: 6px;
-        padding: 8px 16px;
-        transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
-    }
-    button:hover {
-        background-color: #4f2ef3;
-        color: white;
-    }
+svg_path = os.path.join(os.path.dirname(__file__), "..", "assets", "checkmark.svg")
+
+with open(svg_path, "rb") as f:
+    encoded_svg = base64.b64encode(f.read()).decode("utf-8")
+
+remember_checkbox_style = f"""
+/* Checkbox outer wrapper */
+div[data-testid="stCheckbox"] {{
+    background-color: white;
+    padding: 6px 12px;
+    border-radius: 2px;
+}}
+
+/* Visual box span - overrides Streamlit's checkmark with custom */
+div[data-testid="stCheckbox"] .st-du {{
+    background-image: url("data:image/svg+xml;base64,{encoded_svg}") !important;
+    background-position: center center !important;
+    background-repeat: no-repeat !important;
+    background-size: contain !important;
+    border: 1px solid black !important;
+    border-radius: 2px !important;
+    background-color: white !important;
+}}
 """
+
+cookies = EncryptedCookieManager(prefix="townsense", password=os.getenv("COOKIE_SECRET", "changeme"))
+if not cookies.ready():
+    st.stop()
 
 def api_url(path):
     return f"{API_BASE}/{path}"
@@ -83,40 +102,19 @@ def show_account():
     if "auth_mode" not in st.session_state:
         st.session_state.auth_mode = "login"
     if "token" not in st.session_state:
-        st.session_state.token = None
+        # Auto-login from cookie
+        if cookies.get("token"):
+            st.session_state.token = cookies["token"]
+            st.session_state.username = cookies.get("username", "User")
+            st.session_state.remember_me = True
+        else:
+            st.session_state.token = None
     if "reset_step" not in st.session_state:
         st.session_state.reset_step = 1
     if "backend_available" not in st.session_state:
         st.session_state.backend_available = True
 
-    st.markdown("""
-    <style>
-        [data-testid="stExpander"] {
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-            padding: 10px;
-        }
-        [data-testid="stExpander"] > div {
-            background-color: white;
-        }
-        [data-testid="stTextInput"] input,
-        [data-testid="stTextArea"] textarea {
-            background-color: #f9f9f9;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            padding: 6px 10px;
-            font-size: 14px;
-        }
-        [data-testid="stTextInput"] input:focus,
-        [data-testid="stTextArea"] textarea:focus {
-            outline: none;
-            border: 1px solid #726d57;
-            box-shadow: 0 0 0 1px #726d57;
-        }
-    </style>
-    """, unsafe_allow_html=True)
-
+    # Logged in look
     if st.session_state.token:
         st.title(f"👤 Welcome, {st.session_state.get('username', 'User')}!")
         st.markdown("---")
@@ -133,6 +131,9 @@ def show_account():
         with col1:
             with stylable_container("logout_button", css_styles=purple_button_style):
                 if st.button("Logout"):
+                    cookies["token"] = ""
+                    cookies["username"] = ""
+                    cookies.save()
                     st.session_state.clear()
                     st.rerun()
 
@@ -154,6 +155,9 @@ def show_account():
             with st.form("login_form"):
                 username_or_email = st.text_input("Username or Email")
                 password = st.text_input("Password", type="password")
+                with stylable_container("remember_checkbox", css_styles=remember_checkbox_style):
+                    remember = st.checkbox("Remember Me?", value=False)
+
                 with stylable_container("login_button", css_styles=purple_button_style):
                     submitted = st.form_submit_button("Login")
 
@@ -166,12 +170,18 @@ def show_account():
                         st.session_state.token = data["token"]
                         st.session_state.username = data["username"]
                         st.success("✅ Logged in successfully")
+
+                        if remember:
+                            cookies["token"] = data["token"]
+                            cookies["username"] = data["username"]
+                            cookies.save()
+
                         st.rerun()
                     else:
                         st.error(data.get("message"))
-
-            with st.expander("Reset your password"):
-                handle_password_reset()
+            with stylable_container("reset_pass", css_styles=hover_text_purple):
+                with st.expander("Reset your password"):
+                    handle_password_reset()
 
         elif st.session_state.auth_mode == "register":
             with st.form("register_form"):

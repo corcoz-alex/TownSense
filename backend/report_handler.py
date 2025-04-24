@@ -2,7 +2,7 @@ from PIL import Image
 import io
 import base64
 from db import reports_collection
-from datetime import datetime
+from datetime import datetime, timezone
 
 def resize_image(image_bytes, max_width=640):
     with Image.open(io.BytesIO(image_bytes)) as img:
@@ -23,7 +23,7 @@ def save_user_report(username, location, details, image_bytes):
             "location": location,
             "details": details,
             "image": encoded_image,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         })
         return {"status": "success"}
     except Exception as e:

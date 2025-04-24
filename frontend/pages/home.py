@@ -3,11 +3,10 @@ import os
 import base64
 
 def show_home():
-    # if "token" not in st.session_state or not st.session_state["token"]:
-    #     st.error("🔒 Please log in to access this page.")
-    #     st.stop()
+    if "token" not in st.session_state or not st.session_state["token"]:
+        st.error("🔒 Please log in to access this page.")
+        st.stop()
 
-    # Get path to .webm logo
     try:
         webm_path = os.path.join(os.path.dirname(__file__), "..", "assets", "logo.webm")
         with open(webm_path, "rb") as f:

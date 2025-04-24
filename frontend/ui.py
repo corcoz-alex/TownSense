@@ -1,10 +1,10 @@
-import os
 import streamlit as st
+st.set_page_config(page_title="TownSense", layout="centered", page_icon="frontend/assets/smaller_logo.png")
+import os
 from streamlit_navigation_bar import st_navbar
-import pages as pg  # your pages/__init__.py must import all functions
+import pages as pg
 
 # --- App Config ---
-st.set_page_config(page_title="TownSense", layout="centered", page_icon="assets/smaller_logo.png")
 
 st.markdown("""
 <style>
@@ -19,7 +19,7 @@ st.markdown("""
 
 
 # --- Navbar Config ---
-pages = ["Homepage", "TownSense", "History", "Contact", "Account"]
+pages = ["Homepage", "Detection", "History", "Contact", "Account"]
 logo_path = os.path.join(os.path.dirname(__file__), "assets", "small_name_logo.svg")
 styles = {
     "nav": {
@@ -36,9 +36,10 @@ styles = {
         "transition": "all 0.5s ease-in-out",
     },
     "active": {
-        "background-color": "white",
+        "background-color": "#f7f7f7",
         "color": "black",
         "padding": "14px",
+        "font-weight": "normal",
     },
     "hover": {
         "color": "#775cff",
@@ -63,7 +64,7 @@ page = st_navbar(
 # --- Page Routing ---
 functions = {
     "Homepage": pg.home,
-    "TownSense": pg.detection,
+    "Detection": pg.detection,
     "History": pg.history,
     "Contact": pg.contact,
     "Account": pg.account
@@ -71,7 +72,7 @@ functions = {
 
 if page == "Homepage":
     pg.show_home()
-elif page == "TownSense":
+elif page == "Detection":
     pg.show_detection()
 elif page == "History":
     pg.show_history()
@@ -80,6 +81,7 @@ elif page == "Contact":
 elif page == "Account":
     pg.show_account()
 else:
+    page = "Account"
     pg.show_account()
 
 
