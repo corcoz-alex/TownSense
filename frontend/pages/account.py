@@ -1,27 +1,43 @@
-import streamlit as st
-import requests
+from time import sleep
 import base64
+import io
 import os
-from streamlit_extras.stylable_container import stylable_container
+import requests
+from PIL import Image
+import streamlit as st
+from streamlit_avatar import avatar
+from dotenv import load_dotenv
 from streamlit_cookies_manager import EncryptedCookieManager
+from streamlit_extras.stylable_container import stylable_container
 from frontend.styles import purple_button_style, hover_text_purple
+
+# --- Load environment ---
+load_dotenv()  # ✅ Load .env at start
+
+# --- Check COOKIE_SECRET ---
+cookie_secret = os.getenv("COOKIE_SECRET")
+if not cookie_secret:
+    st.error("🚨 COOKIE_SECRET missing in your .env! Please generate and set it.")
+    st.stop()
+
+# --- Setup cookies ---
+cookies = EncryptedCookieManager(prefix="townsense", password=cookie_secret)
+if not cookies.ready():
+    st.stop()
 
 API_BASE = "http://localhost:5000"
 
+# --- Load custom checkbox SVG ---
 svg_path = os.path.join(os.path.dirname(__file__), "..", "assets", "checkmark.svg")
-
 with open(svg_path, "rb") as f:
     encoded_svg = base64.b64encode(f.read()).decode("utf-8")
 
 remember_checkbox_style = f"""
-/* Checkbox outer wrapper */
 div[data-testid="stCheckbox"] {{
     background-color: white;
     padding: 6px 12px;
     border-radius: 2px;
 }}
-
-/* Visual box span - overrides Streamlit's checkmark with custom */
 div[data-testid="stCheckbox"] .st-du {{
     background-image: url("data:image/svg+xml;base64,{encoded_svg}") !important;
     background-position: center center !important;
@@ -33,10 +49,7 @@ div[data-testid="stCheckbox"] .st-du {{
 }}
 """
 
-cookies = EncryptedCookieManager(prefix="townsense", password=os.getenv("COOKIE_SECRET", "changeme"))
-if not cookies.ready():
-    st.stop()
-
+# --- Helper API functions ---
 def api_url(path):
     return f"{API_BASE}/{path}"
 
@@ -51,9 +64,10 @@ def post_api(path, payload):
         st.error("⚠️ Request to backend timed out")
         return {"status": "error", "message": "Request timed out"}
     except Exception as e:
-        st.error("⚠️ Failed to connect to the backend.")
+        st.error("⚠️ Failed to connect to backend.")
         return {"status": "error", "message": str(e)}
 
+# --- Password Reset ---
 def handle_password_reset():
     if st.session_state.reset_step == 1:
         email = st.text_input("Enter your email to receive a reset code")
@@ -97,15 +111,27 @@ def handle_password_reset():
                 st.session_state.reset_step = 1
                 st.rerun()
 
+# --- Compress Uploaded Image ---
+def compress_image(uploaded_file, max_width=300):
+    img = Image.open(uploaded_file)
+    if img.width > max_width:
+        ratio = max_width / float(img.width)
+        height = int(float(img.height) * ratio)
+        img = img.resize((max_width, height))
+    buffer = io.BytesIO()
+    img.save(buffer, format="PNG", optimize=True)
+    return buffer.getvalue()
+
 # --- Main UI ---
 def show_account():
     if "auth_mode" not in st.session_state:
         st.session_state.auth_mode = "login"
     if "token" not in st.session_state:
-        # Auto-login from cookie
         if cookies.get("token"):
             st.session_state.token = cookies["token"]
             st.session_state.username = cookies.get("username", "User")
+            st.session_state.bio = cookies.get("bio", "")
+            st.session_state.profile_picture = cookies.get("profile_picture", "")
             st.session_state.remember_me = True
         else:
             st.session_state.token = None
@@ -114,17 +140,84 @@ def show_account():
     if "backend_available" not in st.session_state:
         st.session_state.backend_available = True
 
-    # Logged in look
     if st.session_state.token:
-        st.title(f"👤 Welcome, {st.session_state.get('username', 'User')}!")
+        st.title("Account Settings")
         st.markdown("---")
-        st.markdown("### ✏️ Account Customization")
-        st.text_input("Change display name", value=st.session_state.get("username", ""))
-        st.text_area("Bio")
-        st.file_uploader("Profile picture", type=["jpg", "jpeg", "png"])
+        st.header("Preview")
+
+        avatar_items = []
+
+        if st.session_state.get("profile_picture"):
+            avatar_items.append({
+                "url": f"data:image/png;base64,{st.session_state['profile_picture']}",
+                "size": 100,
+                "title": st.session_state.get("username", "User"),
+                "caption": st.session_state.get("bio", "No bio yet"),
+                "key": "profile_avatar",
+            })
+        else:
+            avatar_items.append({
+                "url": f"https://api.dicebear.com/7.x/identicon/svg?seed={st.session_state.get('username', 'User')}",
+                "size": 100,
+                "title": st.session_state.get("username", "User"),
+                "caption": st.session_state.get("bio", "No bio yet"),
+                "key": "profile_avatar_fallback",
+            })
+
+        avatar(avatar_items)
+
+        st.markdown("---")
+        st.header("Account Customization")
+
+        new_display_name = st.text_input("Change display name", value=st.session_state.get("username", ""))
+        max_bio_length = 250
+        current_bio = st.session_state.get("bio", "")
+        bio = st.text_area(
+            "Bio",
+            value=current_bio,
+            max_chars=max_bio_length,
+            height=120,
+            key="bio_input"
+        )
+
+        with stylable_container("profile_upload_button", css_styles=purple_button_style):
+            uploaded_picture = st.file_uploader("Profile picture", type=["jpg", "jpeg", "png"])
+
         with stylable_container("save_changes_button", css_styles=purple_button_style):
-            st.button("Save Changes")
-        st.info("This section is for demo only. Profile updates not yet implemented.")
+            if st.button("Save Changes"):
+                new_display_name = new_display_name.strip()
+                bio = bio.strip()
+                if len(new_display_name) < 3 or len(new_display_name) > 30:
+                    st.warning("Username must be between 3 and 30 characters.")
+                    return
+                if len(bio) > 250:
+                    st.warning("Bio must be 250 characters or fewer.")
+                    return
+
+                payload = {
+                    "username": st.session_state.get("username"),
+                    "new_display_name": new_display_name,
+                    "bio": bio
+                }
+
+                if uploaded_picture:
+                    if uploaded_picture.size > 1 * 1024 * 1024:
+                        st.warning("Profile picture must be smaller than 1MB.")
+                        return
+                    compressed_image = compress_image(uploaded_picture)
+                    payload["profile_picture"] = base64.b64encode(compressed_image).decode("utf-8")
+                    st.session_state.profile_picture = payload["profile_picture"]
+
+                response = post_api("update_profile", payload)
+
+                if response.get("status") == "success":
+                    st.success("✅ Profile updated successfully!")
+                    st.session_state.username = new_display_name
+                    st.session_state.bio = bio
+                    sleep(1)
+                    st.rerun()
+                else:
+                    st.error(f"❌ Failed to update profile: {response.get('message')}")
 
         st.markdown("---")
         col1, col2, col3 = st.columns([2, 1, 2])
@@ -139,13 +232,13 @@ def show_account():
 
     else:
         if st.session_state.auth_mode == "login":
-            st.title("🔐 Login")
+            st.title("Login")
             with stylable_container("switch_to_register", css_styles=purple_button_style):
                 if st.button("Don't have an account? Register here"):
                     st.session_state.auth_mode = "register"
                     st.rerun()
         else:
-            st.title("📝 Register")
+            st.title("Sign up")
             with stylable_container("switch_to_login", css_styles=purple_button_style):
                 if st.button("Already have an account? Log in here"):
                     st.session_state.auth_mode = "login"
@@ -169,16 +262,21 @@ def show_account():
                     if data.get("status") == "success":
                         st.session_state.token = data["token"]
                         st.session_state.username = data["username"]
-                        st.success("✅ Logged in successfully")
+                        st.session_state.bio = data.get("bio", "")
+                        st.session_state.profile_picture = data.get("profile_picture", "")
+                        st.success("✅ Logged in successfully!")
 
                         if remember:
                             cookies["token"] = data["token"]
                             cookies["username"] = data["username"]
+                            cookies["bio"] = data.get("bio", "")
+                            cookies["profile_picture"] = data.get("profile_picture", "")
                             cookies.save()
 
                         st.rerun()
                     else:
                         st.error(data.get("message"))
+
             with stylable_container("reset_pass", css_styles=hover_text_purple):
                 with st.expander("Reset your password"):
                     handle_password_reset()
@@ -202,7 +300,7 @@ def show_account():
                             "password": password
                         })
                         if data.get("status") == "success":
-                            st.success("✅ Registered successfully. Please log in.")
+                            st.success("✅ Registered successfully. Please log in!")
                             st.session_state.auth_mode = "login"
                             st.rerun()
                         else:

@@ -1,9 +1,9 @@
+import os
 import subprocess
+import sys
 import time
 import requests
-import sys
 import streamlit.web.cli as stcli
-import os
 
 BACKEND_URL = "http://localhost:5000/"
 BACKEND_SCRIPT = os.path.join("backend", "app.py")
@@ -30,11 +30,18 @@ if __name__ == "__main__":
     try:
         if wait_for_backend():
             print("🌐 Launching Streamlit frontend...")
+
+            # --- 👇 THIS IS IMPORTANT
+            os.environ["STREAMLIT_WATCH_DIRECTORIES"] = "frontend,frontend/pages"
+            os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "true"
+
             sys.argv = ["streamlit", "run", FRONTEND_SCRIPT]
             sys.exit(stcli.main())
+
         else:
             backend_process.terminate()
             print("❌ Could not start frontend because backend isn't reachable.")
+
     except KeyboardInterrupt:
         print("🛑 Shutting down...")
         backend_process.terminate()

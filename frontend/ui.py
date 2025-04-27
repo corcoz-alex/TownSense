@@ -23,7 +23,7 @@ pages = ["Homepage", "Detection", "History", "Contact", "Account"]
 logo_path = os.path.join(os.path.dirname(__file__), "assets", "small_name_logo.svg")
 styles = {
     "nav": {
-        "background-color": "#ffffff",
+        "background-color": "#f5f5f5",
         "justify-content": "left",
         "font-family": "Verdana, sans-serif"
     },

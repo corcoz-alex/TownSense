@@ -2,12 +2,15 @@ import streamlit as st
 import requests
 from datetime import datetime
 import pytz
+from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit_extras.stylable_container import stylable_container
 from frontend.styles import purple_button_style
 
+# --- API Endpoints ---
 API_URL = "http://localhost:5000/get_reports"
+CLEAR_URL = "http://localhost:5000/clear_reports"
 
-
+# --- Fetching Functions ---
 @st.cache_data(ttl=60)
 def fetch_user_reports(username):
     try:
@@ -16,6 +19,14 @@ def fetch_user_reports(username):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+def clear_user_history(username):
+    try:
+        res = requests.post(CLEAR_URL, json={"username": username}, timeout=5)
+        return res.json()
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# --- Helpers ---
 def format_timestamp_to_ro(timestamp):
     try:
         utc_time = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
@@ -24,14 +35,7 @@ def format_timestamp_to_ro(timestamp):
     except Exception:
         return "Invalid time"
 
-def clear_user_history(username):
-    try:
-        res = requests.post("http://localhost:5000/clear_reports", json={"username": username}, timeout=5)
-        return res.json()
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
-
+# --- Page ---
 def show_history():
     if "token" not in st.session_state or not st.session_state["token"]:
         st.error("🔒 Please log in to access this page.")
@@ -39,34 +43,48 @@ def show_history():
 
     st.title("📖 Your Report History")
 
-    # --- Refresh Logic ---
-    col1, col2, col3 = st.columns([2, 1, 2])
-    with col2:
+    add_vertical_space(2)
+
+    # --- Buttons First ---
+    col1, col2, col3 = st.columns([1,3,1])
+    with col1:
         with stylable_container("refresh_btn", css_styles=purple_button_style):
-            if st.button("Refresh"):
-                st.session_state.refresh_reports = True
+            if st.button("🔄 Refresh"):
                 st.cache_data.clear()
+                st.session_state["refresh_reports"] = True
+                st.rerun()
+    with col3:
+        with stylable_container("clear_btn", css_styles=purple_button_style):
+            if st.button("Clear History"):
+                result = clear_user_history(st.session_state["username"])
+                if result.get("status") == "success":
+                    with col2:
+                        st.success(f"✅ Cleared {result.get('deleted', 0)} report(s).")
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error(f"❌ Failed to clear history: {result.get('message')}")
+                    st.stop()
 
-    if st.session_state.get("refresh_reports"):
-        with st.spinner("Refreshing reports..."):
-            data = fetch_user_reports(st.session_state["username"])
-        st.session_state.refresh_reports = False
-    else:
-        data = fetch_user_reports(st.session_state["username"])
+    # --- Fetch Reports (only after buttons) ---
+    data = fetch_user_reports(st.session_state["username"])
 
-    # --- Render reports ---
     if data.get("status") != "success":
         st.error(f"Error: {data.get('message')}")
         return
 
     reports = data.get("reports", [])
-    if not reports:
-        st.info("You haven't submitted any reports yet.")
-        return
+
     if not isinstance(reports, list):
-        st.error("⚠️ Unexpected data format — 'reports' is not a list.")
+        st.error("⚠️ Unexpected data format — 'reports' should be a list but got something else.")
         st.write("Actual value of reports:", reports)
         return
+
+    if not reports:
+        st.info("No reports yet. Start detecting urban problems!")
+        return
+
+    # --- Render Reports ---
     for r in reports:
         image_b64 = r["image"]
         location = r["location"]
@@ -90,16 +108,3 @@ def show_history():
             </div>
         </div>
         """, unsafe_allow_html=True)
-
-    st.markdown("---")
-    col1, col2, col3 = st.columns([2, 1, 2])
-    with col2:
-        with stylable_container("clear_btn", css_styles=purple_button_style):
-            if st.button("🗑️ Clear All History"):
-                result = clear_user_history(st.session_state["username"])
-                if result.get("status") == "success":
-                    st.success(f"✅ Cleared {result.get('deleted', 0)} report(s).")
-                    st.cache_data.clear()
-                    st.rerun()
-                else:
-                    st.error(f"❌ Failed to clear history: {result.get('message')}")

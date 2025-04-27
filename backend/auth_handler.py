@@ -23,20 +23,21 @@ def register_user(email, username, password):
 
 # --- Login ---
 def login_user(username_or_email, password):
-    user = users_collection.find_one({
-        "$or": [
-            {"email": username_or_email},
-            {"username": username_or_email}
-        ]
-    })
-
+    user = users_collection.find_one({"$or": [{"username": username_or_email}, {"email": username_or_email}]})
     if not user:
-        return {"status": "error", "message": "User not found."}
+        return {"status": "error", "message": "Invalid credentials"}
 
-    if not bcrypt.checkpw(password.encode(), user['password'].encode()):
-        return {"status": "error", "message": "Incorrect password."}
+    if not bcrypt.checkpw(password.encode('utf-8'), user["password"].encode('utf-8')):
+        return {"status": "error", "message": "Invalid credentials"}
 
-    return {"status": "success", "user_id": str(user['_id']), "username": user['username']}
+    # 🧠 Extend the response to include bio and profile picture
+    return {
+        "status": "success",
+        "user_id": str(user["_id"]),
+        "username": user["username"],
+        "bio": user.get("bio", ""),
+        "profile_picture": user.get("profile_picture", ""),
+    }
 
 # --- Request Password Reset Code ---
 def request_password_reset_code(email):

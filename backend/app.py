@@ -14,6 +14,7 @@ from ultralytics import YOLO
 from contact_handler import handle_contact_submission
 from report_handler import get_reports_by_username
 from visuals import draw_custom_boxes
+from db import users_collection
 from report_handler import save_user_report
 from auth_handler import (
     register_user,
@@ -177,7 +178,13 @@ def login():
     result = login_user(username_or_email, password)
     if result["status"] == "success":
         token = generate_token(result["user_id"])
-        return jsonify({"status": "success", "token": token, "username": result["username"]})
+        return jsonify({
+            "status": "success",
+            "token": token,
+            "username": result["username"],
+            "bio": result.get("bio", ""),  # ✅ include bio
+            "profile_picture": result.get("profile_picture", "")  # ✅ include profile_picture
+        })
     return jsonify(result)
 
 @app.route("/request-reset-code", methods=["POST"])
@@ -195,6 +202,50 @@ def reset_password_route():
     new_password = data.get("new_password")
     result = verify_reset_code_and_update_password(email, code, new_password)
     return jsonify(result)
+
+@app.route("/update_profile", methods=["POST"])
+def update_profile():
+    try:
+        data = request.json
+
+        old_username = data.get("username")  # CURRENT username (before change)
+        new_display_name = data.get("new_display_name")
+        bio = data.get("bio")
+        profile_picture = data.get("profile_picture")
+
+        if not old_username:
+            return jsonify({"status": "error", "message": "Missing username."}), 400
+
+        update_fields = {}
+
+        if new_display_name and new_display_name.strip() != old_username:
+            # Check if new username already exists
+            if users_collection.find_one({"username": new_display_name.strip()}):
+                return jsonify({"status": "error", "message": "Username already taken."}), 400
+            update_fields["username"] = new_display_name.strip()
+
+        if bio is not None:
+            update_fields["bio"] = bio.strip()
+
+        if profile_picture:
+            update_fields["profile_picture"] = profile_picture
+
+        if not update_fields:
+            return jsonify({"status": "error", "message": "No changes to update."}), 400
+
+        # search by old_username, update new fields
+        result = users_collection.update_one(
+            {"username": old_username},
+            {"$set": update_fields}
+        )
+
+        if result.modified_count > 0:
+            return jsonify({"status": "success", "message": "Profile updated."})
+        else:
+            return jsonify({"status": "error", "message": "Profile update failed."}), 400
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/get_reports", methods=["POST"])
 def get_reports():

@@ -10,6 +10,21 @@ purple_button_style = """
         background-color: #4f2ef3;
         color: white;
     }
+    button[data-testid="stBaseButton-secondary"] {
+    border: 1px solid transparent;
+}
+
+button[data-testid="stBaseButton-secondary"]:hover {
+    border: 1px solid transparent !important;
+}
+
+button[data-testid="stBaseButton-secondaryFormSubmit"] {
+    border: 1px solid transparent;
+}
+
+button[data-testid="stBaseButton-secondaryFormSubmit"]:hover {
+    border: 1px solid transparent !important;
+}
 """
 
 hover_text_purple = """
