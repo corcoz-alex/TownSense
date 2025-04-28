@@ -1,10 +1,9 @@
 import streamlit as st
 st.set_page_config(page_title="TownSense", layout="centered", page_icon="frontend/assets/smaller_logo.png")
 import os
+import base64
 from streamlit_navigation_bar import st_navbar
 import pages as pg
-
-# --- App Config ---
 
 st.markdown("""
 <style>
@@ -17,6 +16,29 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# @st.cache_data
+# def get_base64_of_file(file_path):
+#     with open(file_path, "rb") as f:
+#         data = f.read()
+#     return base64.b64encode(data).decode()
+#
+# # --- Set the background
+# def set_background(image_file_path):
+#     bin_str = get_base64_of_file(image_file_path)
+#     page_bg_img = f"""
+#     <style>
+#     [data-testid="stAppViewContainer"] {{
+#         background-image: url("data:image/jpg;base64,{bin_str}");
+#         background-size: cover;
+#         background-position: center center;
+#         background-repeat: no-repeat;
+#         background-attachment: fixed;
+#     }}
+#     </style>
+#     """
+#     st.markdown(page_bg_img, unsafe_allow_html=True)
+#
+# set_background('frontend/assets/background.jpg')
 
 # --- Navbar Config ---
 pages = ["Homepage", "Detection", "History", "Contact", "Account"]

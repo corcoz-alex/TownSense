@@ -127,8 +127,7 @@ def show_detection():
     add_vertical_space(3)
 
     if st.session_state.get('show_report_button') and st.session_state.get('uploaded_file'):
-        st.markdown("---")
-        col1, col2, col3 = st.columns([1, 1, 1])
+        col1, col2, col3 = st.columns([1.316,1,1])
         with col2:
             with stylable_container(
                 key="report_button",
