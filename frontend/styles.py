@@ -4,26 +4,29 @@ purple_button_style = """
         color: white;
         border-radius: 6px;
         padding: 8px 16px;
-        transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+        transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
     }
     button:hover {
         background-color: #4f2ef3;
         color: white;
     }
+    button:active {
+        background-color: #4f2ef3;
+}
     button[data-testid="stBaseButton-secondary"] {
-    border: 1px solid transparent;
+    border: 0px solid transparent;
 }
 
 button[data-testid="stBaseButton-secondary"]:hover {
-    border: 1px solid transparent !important;
+    border: 0px solid transparent !important;
 }
 
 button[data-testid="stBaseButton-secondaryFormSubmit"] {
-    border: 1px solid transparent;
+    border: 0px solid transparent;
 }
 
 button[data-testid="stBaseButton-secondaryFormSubmit"]:hover {
-    border: 1px solid transparent !important;
+    border: 0px solid transparent !important;
 }
 """
 

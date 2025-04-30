@@ -1,7 +1,7 @@
 import streamlit as st
 st.set_page_config(page_title="TownSense", layout="centered", page_icon="frontend/assets/smaller_logo.png")
 import os
-import base64
+#import base64
 from streamlit_navigation_bar import st_navbar
 import pages as pg
 
@@ -53,15 +53,13 @@ styles = {
         "padding-right": "14px",
     },
     "span": {
-        "color": "black",  # 🎨 black text
+        "color": "black",
         "padding": "14px",
         "transition": "all 0.5s ease-in-out",
     },
     "active": {
         "background-color": "#f7f7f7",
-        "color": "black",
         "padding": "14px",
-        "font-weight": "normal",
     },
     "hover": {
         "color": "#775cff",
@@ -103,7 +101,6 @@ elif page == "Contact":
 elif page == "Account":
     pg.show_account()
 else:
-    page = "Account"
+    page = pg.account
     pg.show_account()
-
 
