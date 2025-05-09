@@ -14,6 +14,7 @@ from email_handler import send_email
 from ultralytics import YOLO
 from contact_handler import handle_contact_submission
 from report_handler import get_reports_by_username
+from datetime import datetime, timezone, timedelta
 from visuals import draw_custom_boxes
 from db import users_collection
 from report_handler import save_user_report
@@ -156,10 +157,11 @@ def contact():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # JWT helper
-def generate_token(user_id):
+def generate_token(user_id, remember_me=False):
+    expiry = datetime.now(timezone.utc) + timedelta(hours=24) if remember_me else datetime.now(timezone.utc) + timedelta(hours=1)
     payload = {
         "user_id": user_id,
-        "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=JWT_EXPIRY_MINUTES)
+        "exp": expiry
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
     return token
@@ -383,5 +385,5 @@ These issues can affect public safety, environmental health, and the overall app
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, use_reloader=False, port=5000)
 

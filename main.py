@@ -31,7 +31,6 @@ if __name__ == "__main__":
         if wait_for_backend():
             print("🌐 Launching Streamlit frontend...")
 
-            # --- 👇 THIS IS IMPORTANT
             os.environ["STREAMLIT_WATCH_DIRECTORIES"] = "frontend,frontend/pages"
             os.environ["STREAMLIT_SERVER_RUN_ON_SAVE"] = "true"
 

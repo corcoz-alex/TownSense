@@ -26,17 +26,39 @@ def show_home():
     except FileNotFoundError:
         st.error("🚫 Could not load homepage animation (logo.webm not found)")
 
-    st.markdown(
-        """
-        <div style="padding: 5vh 0; text-align: center;">
-            <h1 style="font-size: 3.5rem; font-weight: 800; margin-bottom: 0.5rem;">Detect Urban Problems with AI</h1>
-            <p style="font-size: 1.25rem; color: gray;">Revolutionize how cities stay clean, safe, and efficient in a modern and fun way.</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    html("""
+    <style>
+    .hero-text {
+      text-align: center;
+      padding: 5vh 0;
+      font-family: 'Trebuchet MS', sans-serif;
+    }
 
-    add_vertical_space(2)
+    .hero-title {
+      opacity: 0;
+      animation: fadeInHero 1.2s ease 0.5s forwards;
+    }
+
+    .hero-subtitle {
+      opacity: 0;
+      animation: fadeInHero 1.2s ease 0.9s forwards;
+    }
+
+    @keyframes fadeInHero {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    </style>
+
+    <div class="hero-text">
+      <h1 class="hero-title" style="font-size: 2.8rem; font-weight: 800; margin-bottom: 0.5rem;">
+        Detect Urban Problems with AI
+      </h1>
+      <p class="hero-subtitle" style="font-size: 1.25rem; color: gray;">
+        Revolutionize how cities stay clean, safe, and efficient in a modern and fun way.
+      </p>
+    </div>
+    """, height=300)
 
     html("""
     <div style="width: 100%; overflow: hidden; padding: 10px 0;">
@@ -131,7 +153,7 @@ def show_home():
 
     items.forEach(item => observer.observe(item));
     </script>
-    """, height=600)
+    """, height=500)
 
     html("""
     <style>

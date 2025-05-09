@@ -1,5 +1,5 @@
 import streamlit as st
-st.set_page_config(page_title="TownSense", layout="centered", page_icon="frontend/assets/smaller_logo.png")
+st.set_page_config(page_title="TownSense", layout="wide", page_icon="frontend/assets/smaller_logo.png")
 import os
 #import base64
 from streamlit_navigation_bar import st_navbar

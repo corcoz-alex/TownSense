@@ -27,24 +27,6 @@ def load_lottie_url(url: str):
         return None
     return r.json()
 
-def send_to_evaluation(detections, base64_image=None):
-    """Send detection results to the evaluation endpoint for AI analysis"""
-    try:
-        payload = {"detections": detections}
-        if base64_image:
-            payload["image"] = base64_image
-            
-        response = requests.post("http://localhost:5000/evaluate", json=payload, timeout=45)  # Increased timeout
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.Timeout:
-        return {
-            "status": "error",
-            "message": "AI evaluation timed out. The server is processing your request but it's taking longer than expected."
-        }
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
 @st.dialog("Report form")
 def display_report_form(uploaded_file):
     st.markdown("### 📝 Report a problem to the authorities")
@@ -128,35 +110,6 @@ def show_detection():
                                             st.write(
                                                 f"• **{obj['name']}** ({obj['confidence']*100:.1f}%) — BBox: `{obj['bbox']}`"
                                             )
-
-                        # Send detection results to evaluation endpoint
-                        with st.spinner("Getting AI evaluation of urban issues..."):
-                            eval_result = send_to_evaluation(model_results, data.get('image'))
-
-                            if eval_result.get("status") != "error" and "evaluation" in eval_result:
-                                with stylable_container(
-                                    key="ai_evaluation_container",
-                                    css_styles="""
-                                    div {
-                                        background-color: #f8f9fa;
-                                        border-left: 4px solid #775cff;
-                                        padding: 20px;
-                                        border-radius: 4px;
-                                        margin: 20px 0;
-                                    }
-                                    """
-                                ):
-                                    ai_provider = "GitHub GPT-4.1" if "note" not in eval_result else "Local AI"
-                                    st.markdown(f"### 🤖 AI Evaluation ({ai_provider})")
-                                    st.markdown(eval_result["evaluation"])
-
-                                    # Display a note if using fallback analysis
-                                    if "note" in eval_result:
-                                        st.info(eval_result["note"])
-                            else:
-                                st.warning(f"⚠️ Could not get AI evaluation: {eval_result.get('message', 'Unknown error')}")
-                                st.info("The system will still allow you to submit a report based on the detected issues.")
-
                         st.session_state['show_report_button'] = True
                     else:
                         st.warning("⚠️ No detectable issues found in the uploaded image.")
@@ -197,5 +150,3 @@ def show_detection():
             ):
                 if st.button("Send Report"):
                     display_report_form(st.session_state['uploaded_file'])
-
-
