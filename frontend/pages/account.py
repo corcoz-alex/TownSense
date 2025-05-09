@@ -266,7 +266,8 @@ def show_account():
                 with st.form("login_form"):
                     username_or_email = st.text_input("Username or Email")
                     password = st.text_input("Password", type="password")
-                    remember = st.checkbox("Remember Me?", value=False)
+                    with stylable_container("remember_me", css_styles=remember_checkbox_style):
+                        remember = st.checkbox("Remember Me?", value=False)
                     with stylable_container("login_button", css_styles=purple_button_style):
                         submitted = st.form_submit_button("Login")
 

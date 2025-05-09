@@ -3,8 +3,10 @@ import requests
 from PIL import Image
 from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit_extras.stylable_container import stylable_container
-from frontend.styles import purple_button_style, hover_text_purple
-import io
+from frontend.styles import purple_button_style
+from streamlit_folium import st_folium
+import folium
+from geopy.geocoders import Nominatim
 
 # --- Helpers ---
 def send_report_to_backend(location, details, uploaded_file):
@@ -28,6 +30,14 @@ def load_lottie_url(url: str):
         return None
     return r.json()
 
+def get_address_from_coordinates(lat, lon):
+    try:
+        geolocator = Nominatim(user_agent="TownSense")
+        location = geolocator.reverse((lat, lon), language='en')
+        return location.address
+    except Exception:
+        return None
+
 def send_to_evaluation(detections, base64_image=None):
     """Send detection results to the evaluation endpoint for AI analysis"""
     try:
@@ -49,31 +59,53 @@ def send_to_evaluation(detections, base64_image=None):
 @st.dialog("Report form")
 def display_report_form(uploaded_file):
     st.markdown("### 📝 Report a problem to the authorities")
-    location = st.text_input("📍 Location")
-    details = st.text_area("🧾 Problem Details (minimum 20 characters)")
 
+    # Initialize dialog state
+    st.session_state.setdefault("selected_location", None)
+    st.session_state.setdefault("details", "")
+
+    # Map input
+    st.markdown("#### 📍 Select a location on the map")
+    m = folium.Map(location=[45.9432, 24.9668], zoom_start=6)
+    m.add_child(folium.LatLngPopup())
+    map_data = st_folium(m, width=700, height=500)
+    if map_data and map_data.get('last_clicked'):
+        lat, lon = map_data['last_clicked']['lat'], map_data['last_clicked']['lng']
+        st.session_state.selected_location = (lat, lon)
+        address = get_address_from_coordinates(lat, lon)
+        if address:
+            st.session_state.address = address
+            st.success(f"Selected Address: {address}")
+        else:
+            st.warning("Unable to retrieve address.")
+
+    # Details input
+    st.markdown("#### 🧾 Problem Details (minimum 20 characters)")
+    st.session_state.details = st.text_area("", value=st.session_state.details, key="details_input")
+
+    # Submit
     with stylable_container("submit_report", css_styles=purple_button_style):
         if st.button("📤 Submit Report"):
-            if not location.strip() or len(details.strip()) < 20:
-                st.warning("Please fill all fields correctly.")
+            if not st.session_state.selected_location:
+                st.warning("Please select a location on the map.")
                 return
-
+            if len(st.session_state.details.strip()) < 20:
+                st.warning("Please provide at least 20 characters for the details.")
+                return
             with st.spinner("🚀 Submitting your report..."):
-                try:
-                    result = send_report_to_backend(location, details, uploaded_file)
-                    if result.get("status") == "success":
-                        st.success("✅ Report submitted successfully!")
-                        st.balloons()
-                    else:
-                        st.error(f"❌ Error: {result.get('message')}")
-                except requests.exceptions.ConnectionError as e:
-                    if "10054" in str(e):
-                        st.success("✅ Report was submitted! (Connection closed early)")
-                        st.balloons()
-                    else:
-                        st.error(f"❌ Connection error: {str(e)}")
-                except Exception as e:
-                    st.error(f"❌ Unexpected error: {str(e)}")
+                result = send_report_to_backend(st.session_state.address, st.session_state.details, uploaded_file)
+                if result.get("status") == "success":
+                    st.success("✅ Report submitted successfully!")
+                    st.balloons()
+                    # clear all detection and dialog state
+                    for key in [
+                        'show_report_dialog', 'show_report_button',
+                        'uploaded_file', 'original_image_bytes', 'annotated_image_b64',
+                        'model_results', 'selected_location', 'address', 'details'
+                    ]:
+                        st.session_state.pop(key, None)
+                else:
+                    st.error(f"❌ Error: {result.get('message')}")
 
 # CSS for the loading effect during AI analysis
 ai_analysis_overlay_css = """
@@ -133,7 +165,6 @@ def show_detection():
     with st.container():
         st.markdown("### Upload an Image")
         st.markdown("Select a photo showing a street, road, or urban area to start detection.")
-        st.info("💡 Large images will be automatically resized for optimal processing.")
 
         with st.form("upload_form", clear_on_submit=True):
             with stylable_container("upload_button", css_styles=purple_button_style):
@@ -246,25 +277,7 @@ def show_detection():
     if st.session_state.get('show_report_button') and st.session_state.get('uploaded_file'):
         col1, col2, col3 = st.columns([1.316,1,1])
         with col2:
-            with stylable_container(
-                key="report_button",
-                css_styles="""
-                button {
-                    background-color: #fb0231;
-                    color: white;
-                    font-weight: bold;
-                    font-size: 1.1rem;
-                    border-radius: 8px;
-                    padding: 12px 24px;
-                    box-shadow: 0px 4px 10px rgba(0,0,0,0.15);
-                    transition: background-color 0.3s ease-in-out, transform 0.3s ease;
-                }
-                button:hover {
-                    background-color: #c90227;
-                    transform: scale(1.05);
-                }
-                """,
-            ):
+            with stylable_container(key="report_button", css_styles=purple_button_style):
                 if st.button("Send Report"):
                     display_report_form(st.session_state['uploaded_file'])
 
