@@ -4,6 +4,7 @@ from PIL import Image
 from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit_extras.stylable_container import stylable_container
 from frontend.styles import purple_button_style, hover_text_purple
+import io
 
 # --- Helpers ---
 def send_report_to_backend(location, details, uploaded_file):
@@ -74,11 +75,51 @@ def display_report_form(uploaded_file):
                 except Exception as e:
                     st.error(f"❌ Unexpected error: {str(e)}")
 
+# CSS for the loading effect during AI analysis
+ai_analysis_overlay_css = """
+.ai-analysis-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.rotating-screw {
+    width: 100px;
+    height: 100px;
+    animation: rotate 2s linear infinite;
+}
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.ai-text {
+    color: white;
+    font-size: 24px;
+    margin-top: 20px;
+    text-shadow: 0px 0px 10px rgba(119, 92, 255, 1);
+}
+"""
+
 # --- Page ---
 def show_detection():
     if "token" not in st.session_state or not st.session_state["token"]:
         st.error("🔒 Please log in to access this page.")
         st.stop()
+
+    # Inject custom CSS for overlay effect
+    st.markdown(f"<style>{ai_analysis_overlay_css}</style>", unsafe_allow_html=True)
 
     st.markdown("""
     <div style="text-align: center;">
@@ -92,6 +133,7 @@ def show_detection():
     with st.container():
         st.markdown("### Upload an Image")
         st.markdown("Select a photo showing a street, road, or urban area to start detection.")
+        st.info("💡 Large images will be automatically resized for optimal processing.")
 
         with st.form("upload_form", clear_on_submit=True):
             with stylable_container("upload_button", css_styles=purple_button_style):
@@ -102,40 +144,62 @@ def show_detection():
 
         if submitted and uploaded_file:
             st.success("✅ Image uploaded successfully.")
-            st.image(Image.open(uploaded_file), use_container_width=True)
-
+            
+            # Display image with reasonable size limits
+            img = Image.open(uploaded_file)
+            img_width, img_height = img.size
+            
+            # Show image dimensions for debugging
+            st.caption(f"Image dimensions: {img_width} × {img_height} pixels")
+            
+            # Create columns to make image narrower
+            col1, col2, col3 = st.columns([1, 3, 1])
+            
+            with col2:
+                # Display original image with smaller width
+                st.image(img, use_container_width=True, caption="Original uploaded image")
+            
+            # Create a container for the results that will be blurred during AI analysis
+            results_container = st.container()
+            
+            # Create the overlay container for the loading effect
+            overlay_placeholder = st.empty()
+            
+            # Show loading overlay
+            with overlay_placeholder:
+                st.markdown("""
+                <div class="ai-analysis-overlay">
+                    <div class="rotating-screw">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white">
+                            <path d="M12,1L8,5H11V14H13V5H16M18,23H6V19H18V23M15,15H9L6,18H18L15,15Z" />
+                        </svg>
+                    </div>
+                    <div class="ai-text">AI is analyzing your image...</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
             with st.spinner("Analyzing image with AI models..."):
                 try:
+                    # Reset file pointer to beginning
+                    uploaded_file.seek(0)
+                    
                     files = {
                         "image": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)
                     }
-                    response = requests.post("http://localhost:5000/upload", files=files, timeout=10)
+                    response = requests.post("http://localhost:5000/upload", files=files, timeout=30)
                     response.raise_for_status()
                     data = response.json()
                     model_results = data.get("detected_objects", {})
 
-                    if "image" in data:
-                        st.markdown("### 🖼️ Detection Results")
-                        st.image(f"data:image/png;base64,{data['image']}", use_container_width=True)
-
-                    # Display detection results if any
-                    if any(model_results.values()):
-                        st.success("✅ Objects detected:")
-                        for model_name, objects in model_results.items():
-                            if objects:
-                                with stylable_container(key=f"detection_expander_{model_name}", css_styles=hover_text_purple):
-                                    with st.expander(f"🔎 {model_name.title()} ({len(objects)} detected)", expanded=False):
-                                        for obj in objects:
-                                            st.write(
-                                                f"• **{obj['name']}** ({obj['confidence']*100:.1f}%) — BBox: `{obj['bbox']}`"
-                                            )
-                    else:
-                        st.info("⚠️ No local AI detections found in the image. GPT will still analyze for potential issues.")
-                    
                     # Always send to evaluation, regardless of whether local models detected anything
-                    with st.spinner("Getting AI evaluation of urban issues..."):
-                        eval_result = send_to_evaluation(model_results, data.get('image'))
+                    eval_result = send_to_evaluation(model_results, data.get('image'))
+                    
+                    # Clear the overlay once processing is complete
+                    overlay_placeholder.empty()
+                    
+                    with results_container:
 
+                        
                         if eval_result.get("status") != "error" and "evaluation" in eval_result:
                             with stylable_container(
                                 key="ai_evaluation_container",
@@ -156,12 +220,9 @@ def show_detection():
                                 # Display a note if using fallback analysis
                                 if "note" in eval_result:
                                     st.info(eval_result["note"])
-                                
-                            # Show updated image if there's one with marked issues
-                            if "marked_image" in eval_result:
-                                st.markdown("### 🔍 Issues Highlighted by AI")
-                                st.image(f"data:image/png;base64,{eval_result['marked_image']}", use_container_width=True)
                             
+                            # Note: Removed expanders for marked images as requested
+
                             # Always enable report button after analysis
                             st.session_state['show_report_button'] = True
                         else:
@@ -169,10 +230,12 @@ def show_detection():
                             st.info("The system will still allow you to submit a report based on the detected issues.")
                             st.session_state['show_report_button'] = True
 
-                    # ✅ Save the uploaded file AFTER successful analysis
+                    # Save the uploaded file AFTER successful analysis
                     st.session_state['uploaded_file'] = uploaded_file
 
                 except requests.exceptions.RequestException as e:
+                    # Clear the overlay on error
+                    overlay_placeholder.empty()
                     st.error(f"❌ Detection failed: {e}")
 
         elif submitted:

@@ -60,6 +60,27 @@ try:
 except Exception as e:
     app.logger.exception("Error during model warmup")
 
+# Function to resize large images
+def resize_image(image, max_dimension=1280):
+    """Resize an image if it exceeds the maximum dimension while preserving aspect ratio."""
+    width, height = image.size
+    
+    # If the image is already smaller than the max dimension, return it as is
+    if width <= max_dimension and height <= max_dimension:
+        return image
+        
+    # Calculate the resize factor to maintain aspect ratio
+    if width > height:
+        resize_factor = max_dimension / width
+    else:
+        resize_factor = max_dimension / height
+        
+    new_width = int(width * resize_factor)
+    new_height = int(height * resize_factor)
+    
+    app.logger.info(f"Resizing image from {width}x{height} to {new_width}x{new_height}")
+    return image.resize((new_width, new_height), Image.LANCZOS)
+
 # Add a simple health check endpoint
 @app.route('/', methods=['GET'])
 def health_check():
@@ -79,6 +100,10 @@ def upload_image():
 
         img_bytes = file.read()
         image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+        
+        # Resize large images before processing
+        image = resize_image(image)
+        
         annotated = np.array(image)  # Convert to NumPy for OpenCV
 
         combined_results = {}
@@ -391,3 +416,4 @@ These issues can affect public safety, environmental health, and the overall app
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+

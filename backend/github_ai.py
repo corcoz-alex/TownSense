@@ -30,6 +30,7 @@ class GitHubAIClient:
         }
         self.max_retries = int(os.getenv("GITHUB_AI_MAX_RETRIES", "2"))
         self.request_timeout = int(os.getenv("GITHUB_AI_TIMEOUT", "30"))
+        self.max_image_dimension = int(os.getenv("MAX_IMAGE_DIMENSION", "1280"))
         logger.info(f"GitHub AI client initialized successfully (timeout={self.request_timeout}s, retries={self.max_retries})")
         
     def generate_interpretation(self, detections, base64_image=None):
@@ -45,6 +46,10 @@ class GitHubAIClient:
         try:
             # Extract relevant detection information
             detection_summary = self._prepare_detection_summary(detections)
+            
+            # Resize image if needed
+            if base64_image:
+                base64_image = self._ensure_image_size(base64_image)
             
             # Create prompt for GitHub AI with instructions to identify issues regardless of detection results
             system_message = """You are an urban infrastructure analysis expert. Your task is to:
@@ -350,3 +355,38 @@ class GitHubAIClient:
         except Exception as e:
             logger.error(f"Error marking issues on image: {str(e)}")
             return None
+    
+    def _ensure_image_size(self, base64_image):
+        """Ensure image is not too large for processing"""
+        try:
+            # Decode base64 image
+            image_data = base64.b64decode(base64_image)
+            img = Image.open(io.BytesIO(image_data)).convert("RGB")
+            
+            width, height = img.size
+            
+            # If image is already small enough, return it as is
+            if width <= self.max_image_dimension and height <= self.max_image_dimension:
+                return base64_image
+                
+            logger.info(f"Resizing large image from {width}x{height} for GitHub AI processing")
+                
+            # Calculate resize factor
+            if width > height:
+                resize_factor = self.max_image_dimension / width
+            else:
+                resize_factor = self.max_image_dimension / height
+                
+            # Resize image
+            new_width = int(width * resize_factor)
+            new_height = int(height * resize_factor)
+            img = img.resize((new_width, new_height), Image.LANCZOS)
+            
+            # Convert back to base64
+            buffered = io.BytesIO()
+            img.save(buffered, format="JPEG", quality=85)
+            return base64.b64encode(buffered.getvalue()).decode()
+            
+        except Exception as e:
+            logger.error(f"Error resizing image: {str(e)}")
+            return base64_image  # Return original if resize fails
