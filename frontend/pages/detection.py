@@ -118,6 +118,7 @@ def show_detection():
                         st.markdown("### 🖼️ Detection Results")
                         st.image(f"data:image/png;base64,{data['image']}", use_container_width=True)
 
+                    # Display detection results if any
                     if any(model_results.values()):
                         st.success("✅ Objects detected:")
                         for model_name, objects in model_results.items():
@@ -128,39 +129,45 @@ def show_detection():
                                             st.write(
                                                 f"• **{obj['name']}** ({obj['confidence']*100:.1f}%) — BBox: `{obj['bbox']}`"
                                             )
-
-                        # Send detection results to evaluation endpoint
-                        with st.spinner("Getting AI evaluation of urban issues..."):
-                            eval_result = send_to_evaluation(model_results, data.get('image'))
-
-                            if eval_result.get("status") != "error" and "evaluation" in eval_result:
-                                with stylable_container(
-                                    key="ai_evaluation_container",
-                                    css_styles="""
-                                    div {
-                                        background-color: #f8f9fa;
-                                        border-left: 4px solid #775cff;
-                                        padding: 20px;
-                                        border-radius: 4px;
-                                        margin: 20px 0;
-                                    }
-                                    """
-                                ):
-                                    ai_provider = "GitHub GPT-4.1" if "note" not in eval_result else "Local AI"
-                                    st.markdown(f"### 🤖 AI Evaluation ({ai_provider})")
-                                    st.markdown(eval_result["evaluation"])
-
-                                    # Display a note if using fallback analysis
-                                    if "note" in eval_result:
-                                        st.info(eval_result["note"])
-                            else:
-                                st.warning(f"⚠️ Could not get AI evaluation: {eval_result.get('message', 'Unknown error')}")
-                                st.info("The system will still allow you to submit a report based on the detected issues.")
-
-                        st.session_state['show_report_button'] = True
                     else:
-                        st.warning("⚠️ No detectable issues found in the uploaded image.")
-                        st.session_state['show_report_button'] = False
+                        st.info("⚠️ No local AI detections found in the image. GPT will still analyze for potential issues.")
+                    
+                    # Always send to evaluation, regardless of whether local models detected anything
+                    with st.spinner("Getting AI evaluation of urban issues..."):
+                        eval_result = send_to_evaluation(model_results, data.get('image'))
+
+                        if eval_result.get("status") != "error" and "evaluation" in eval_result:
+                            with stylable_container(
+                                key="ai_evaluation_container",
+                                css_styles="""
+                                div {
+                                    background-color: #f8f9fa;
+                                    border-left: 4px solid #775cff;
+                                    padding: 20px;
+                                    border-radius: 4px;
+                                    margin: 20px 0;
+                                }
+                                """
+                            ):
+                                ai_provider = "GitHub GPT-4.1" if "note" not in eval_result else "Local AI"
+                                st.markdown(f"### 🤖 AI Evaluation ({ai_provider})")
+                                st.markdown(eval_result["evaluation"])
+
+                                # Display a note if using fallback analysis
+                                if "note" in eval_result:
+                                    st.info(eval_result["note"])
+                                
+                            # Show updated image if there's one with marked issues
+                            if "marked_image" in eval_result:
+                                st.markdown("### 🔍 Issues Highlighted by AI")
+                                st.image(f"data:image/png;base64,{eval_result['marked_image']}", use_container_width=True)
+                            
+                            # Always enable report button after analysis
+                            st.session_state['show_report_button'] = True
+                        else:
+                            st.warning(f"⚠️ Could not get AI evaluation: {eval_result.get('message', 'Unknown error')}")
+                            st.info("The system will still allow you to submit a report based on the detected issues.")
+                            st.session_state['show_report_button'] = True
 
                     # ✅ Save the uploaded file AFTER successful analysis
                     st.session_state['uploaded_file'] = uploaded_file
@@ -197,5 +204,3 @@ def show_detection():
             ):
                 if st.button("Send Report"):
                     display_report_form(st.session_state['uploaded_file'])
-
-

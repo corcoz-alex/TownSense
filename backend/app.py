@@ -283,22 +283,29 @@ def clear_reports():
 def evaluate_image():
     try:
         data = request.get_json()
-        detections = data.get("detections")
+        detections = data.get("detections", {})
         base64_image = data.get("image")  # Get the base64 image from the request
 
-        if not detections:
-            return jsonify({"status": "error", "message": "Missing detection results"}), 400
+        if not base64_image:
+            return jsonify({"status": "error", "message": "Missing image data"}), 400
             
-        # Try using GitHub AI first for comprehensive analysis
+        # Always try to use GitHub AI first, even if no detections from local models
         try:
             github_ai = GitHubAIClient()
             result = github_ai.generate_interpretation(detections, base64_image)
             
             if result["status"] == "success":
-                return jsonify({
+                # Create a response that includes any marked image
+                response = {
                     "status": "success",
                     "evaluation": result["evaluation"]
-                })
+                }
+                
+                # Include marked image if available
+                if "marked_image" in result:
+                    response["marked_image"] = result["marked_image"]
+                
+                return jsonify(response)
             else:
                 app.logger.warning(f"GitHub AI failed: {result.get('message')}. Using fallback analysis.")
         except Exception as e:
@@ -356,7 +363,7 @@ def analyze_urban_issues(detections):
         analysis = """
 ## Urban Analysis
 
-No significant urban issues were detected in this image. The area appears to be in good condition based on our detection models.
+No significant urban issues were detected in this image by our local detection models. The area appears to be in good condition based on our detection capabilities.
 
 ### Recommendations
 - Continue regular maintenance of the area
@@ -384,4 +391,3 @@ These issues can affect public safety, environmental health, and the overall app
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-
