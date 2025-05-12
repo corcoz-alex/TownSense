@@ -7,6 +7,8 @@ from frontend.styles import purple_button_style
 from streamlit_folium import st_folium
 import folium
 from geopy.geocoders import Nominatim
+import base64
+import io
 
 # --- Helpers ---
 def send_report_to_backend(location, details, uploaded_file):
@@ -224,12 +226,33 @@ def show_detection():
                     
                     # Save model results in session state so the feedback form can access it
                     st.session_state['model_results'] = model_results
+                    st.session_state['original_image_b64'] = data.get('image')
 
                     # Always send to evaluation, regardless of whether local models detected anything
                     eval_result = send_to_evaluation(model_results, data.get('image'))
                     
                     # Clear the overlay once processing is complete
                     overlay_placeholder.empty()
+
+                    # Check if the response contains a marked image with identified problems
+                    if eval_result.get("status") == "success" and "marked_image" in eval_result:
+                        # Save the marked image in session state
+                        st.session_state['marked_image_b64'] = eval_result["marked_image"]
+                        
+                        # Display the marked image
+                        with col2:
+                            st.success("✅ Urban problems identified and marked on image")
+                            try:
+                                # Convert base64 to image and display
+                                marked_image_bytes = base64.b64decode(eval_result["marked_image"])
+                                marked_image = Image.open(io.BytesIO(marked_image_bytes))
+                                st.image(marked_image, use_container_width=True, 
+                                         caption="Image with identified problems highlighted")
+                            except Exception as img_error:
+                                st.error(f"Error displaying marked image: {str(img_error)}")
+                                st.info("Displaying original image instead")
+                                # Fall back to original image if marked image can't be displayed
+                                st.image(img, use_container_width=True, caption="Original image (marked image unavailable)")
 
                     # Single-Level Container for AI Evaluation
                     st.markdown("### 🤖 AI Evaluation")
@@ -244,6 +267,7 @@ def show_detection():
                         st.session_state['show_report_button'] = True
                     else:
                         st.warning(f"⚠️ Could not get AI evaluation: {eval_result.get('message', 'Unknown error')}")
+                        st.error("Debug info: " + str(eval_result))
 
                     # Save the uploaded file AFTER successful analysis
                     st.session_state['uploaded_file'] = uploaded_file
@@ -270,6 +294,14 @@ def show_detection():
         st.markdown("### 📝 Feedback on AI Detection")
         st.markdown("Help us improve by providing feedback on the AI's performance.")
 
+        with st.expander("What does your feedback help with?", expanded=False):
+            st.markdown("""
+            Your feedback directly helps our AI models learn and improve:
+            - We use it to adjust detection sensitivity for different urban problems
+            - Comments about missed issues help us create better training data
+            - Regular feedback helps us measure model performance over time
+            """)
+
         feedback_correct = st.radio(
             "Did the AI detect the issues correctly?",
             options=["Yes", "No"],
@@ -278,10 +310,14 @@ def show_detection():
 
         feedback_comments = st.text_area(
             "What was wrong or could be improved? (Optional)",
-            key="feedback_comments"
+            key="feedback_comments",
+            help="Please mention any issues the AI missed or incorrectly identified"
         )
 
-        if st.button("Submit Feedback"):
+        with stylable_container("feedback_button", css_styles=purple_button_style):
+            submit_feedback = st.button("Submit Feedback")
+            
+        if submit_feedback:
             with st.spinner("Submitting feedback..."):
                 feedback_data = {
                     "correct": feedback_correct,
@@ -297,10 +333,16 @@ def show_detection():
                     )
                     if response.status_code == 200:
                         st.success("✅ Feedback submitted successfully. Thank you!")
+                        st.balloons()
+                        # Clear the form
+                        st.session_state.feedback_comments = ""
                     else:
                         st.error(f"❌ Failed to submit feedback: {response.text}")
                 except Exception as e:
                     st.error(f"❌ Error: {str(e)}")
 
 #viespa
+
+
+
 

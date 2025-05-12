@@ -30,6 +30,10 @@ feedback_collection = db["feedback"]  # New collection for storing feedback
 reports_collection.create_index("username")
 reports_collection.create_index("timestamp")
 
+# Create indexes for the feedback collection
+feedback_collection.create_index("username")
+feedback_collection.create_index("timestamp")
+feedback_collection.create_index("correct")  # For querying by feedback correctness
+feedback_collection.create_index([("timestamp", pymongo.DESCENDING)])  # For recent feedback analysis
 
 print("✅ MongoDB connected to database:", DB_NAME)
-

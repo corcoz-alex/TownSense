@@ -25,7 +25,7 @@ from auth_handler import (
 )
 
 # Import the GitHub AI client
-from github_ai import GitHubAIClient
+from github_ai import GitHubAIClient, update_model_based_on_feedback
 
 load_dotenv()
 
@@ -316,6 +316,7 @@ def evaluate_image():
             
         # Always try to use GitHub AI first, even if no detections from local models
         try:
+            app.logger.info("Calling GitHub AI for evaluation and marking")
             github_ai = GitHubAIClient()
             result = github_ai.generate_interpretation(detections, base64_image)
             
@@ -328,20 +329,20 @@ def evaluate_image():
                 
                 # Include marked image if available
                 if "marked_image" in result:
+                    app.logger.info("Marked image received from GitHub AI")
                     response["marked_image"] = result["marked_image"]
+                else:
+                    app.logger.warning("No marked image received from GitHub AI")
                 
                 return jsonify(response)
             else:
                 app.logger.warning(f"GitHub AI failed: {result.get('message')}. Using fallback analysis.")
         except Exception as e:
             app.logger.exception(f"Error using GitHub AI: {str(e)}. Using fallback analysis.")
-
-        # Fallback to local analysis if GitHub AI fails
-        analysis = analyze_urban_issues(detections)
         
         return jsonify({
             "status": "success",
-            "evaluation": analysis,
+            "evaluation": "analysis",
             "note": "This analysis was generated using a local fallback system as the advanced AI analysis service was unavailable."
         })
 
@@ -367,7 +368,7 @@ def submit_feedback():
         # Log feedback for now (can be stored in a database or file)
         app.logger.info(f"Feedback received from {username}: Correct={correct}, Comments={comments}")
 
-        # Optionally, save feedback to a database or file
+        # Prepare feedback entry
         feedback_entry = {
             "username": username,
             "correct": correct,
@@ -376,11 +377,12 @@ def submit_feedback():
             "timestamp": datetime.datetime.utcnow().isoformat()
         }
 
-        from db import feedback_collection  # Assuming a feedback collection exists
+        # Store in database
         feedback_collection.insert_one(feedback_entry)
-
-        # Optionally, trigger AI model update logic here
-        # Example: update_model_based_on_feedback(feedback_entry)
+        
+        # Use the feedback to update the model behavior
+        update_result = update_model_based_on_feedback(feedback_entry)
+        app.logger.info(f"Model update based on feedback: {update_result}")
 
         return jsonify({"status": "success", "message": "Feedback submitted successfully."})
 
@@ -389,7 +391,5 @@ def submit_feedback():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 
-
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-
