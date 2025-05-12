@@ -25,9 +25,11 @@ db = client[DB_NAME]
 # Collections
 users_collection = db["users"]
 reports_collection = db["reports"]
+feedback_collection = db["feedback"]  # New collection for storing feedback
 
 reports_collection.create_index("username")
 reports_collection.create_index("timestamp")
 
 
 print("✅ MongoDB connected to database:", DB_NAME)
+

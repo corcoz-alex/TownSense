@@ -352,66 +352,42 @@ def evaluate_image():
             "message": f"Evaluation failed: {str(e)}"
         }), 500
 
-def analyze_urban_issues(detections):
-    """Generate an analysis of detected urban issues without external API calls"""
+@app.route("/submit_feedback", methods=["POST"])
+def submit_feedback():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"status": "error", "message": "No data received"}), 400
 
-    problems_found = []
-    recommendations = []
+        correct = data.get("correct")
+        comments = data.get("comments", "")
+        detections = data.get("detections", {})
+        username = data.get("username", "anonymous")
 
-    # Check for garbage/waste issues
-    garbage_objects = detections.get("garbage_detection", [])
-    if garbage_objects:
-        garbage_count = len(garbage_objects)
-        confidence_sum = sum(obj['confidence'] for obj in garbage_objects)
-        avg_confidence = confidence_sum / garbage_count if garbage_count > 0 else 0
+        # Log feedback for now (can be stored in a database or file)
+        app.logger.info(f"Feedback received from {username}: Correct={correct}, Comments={comments}")
 
-        if garbage_count > 3:
-            problems_found.append(f"Significant waste pollution detected with {garbage_count} waste items identified")
-            recommendations.append("Schedule urgent waste collection and cleanup")
-        elif garbage_count > 0:
-            problems_found.append(f"Minor waste issue detected with {garbage_count} waste items")
-            recommendations.append("Regular waste collection needed")
+        # Optionally, save feedback to a database or file
+        feedback_entry = {
+            "username": username,
+            "correct": correct,
+            "comments": comments,
+            "detections": detections,
+            "timestamp": datetime.datetime.utcnow().isoformat()
+        }
 
-    # Check for pothole issues
-    pothole_objects = detections.get("potholes", [])
-    if pothole_objects:
-        pothole_count = len(pothole_objects)
-        if pothole_count > 2:
-            problems_found.append(f"Multiple potholes detected ({pothole_count}) - road surface is compromised")
-            recommendations.append("Immediate road maintenance required to prevent vehicle damage and accidents")
-        elif pothole_count > 0:
-            problems_found.append(f"{pothole_count} pothole(s) detected on the road surface")
-            recommendations.append("Schedule road maintenance to fix the identified potholes")
+        from db import feedback_collection  # Assuming a feedback collection exists
+        feedback_collection.insert_one(feedback_entry)
 
-    # Generate final analysis
-    if not problems_found:
-        analysis = """
-## Urban Analysis
+        # Optionally, trigger AI model update logic here
+        # Example: update_model_based_on_feedback(feedback_entry)
 
-No significant urban issues were detected in this image by our local detection models. The area appears to be in good condition based on our detection capabilities.
+        return jsonify({"status": "success", "message": "Feedback submitted successfully."})
 
-### Recommendations
-- Continue regular maintenance of the area
-- Monitor for any developing issues
-"""
-    else:
-        problems_text = "\n".join([f"- {p}" for p in problems_found])
-        recommendations_text = "\n".join([f"- {r}" for r in recommendations])
+    except Exception as e:
+        app.logger.exception("Error handling feedback submission")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-        analysis = f"""
-## Urban Analysis
-
-### Detected Issues
-{problems_text}
-
-### Recommendations
-{recommendations_text}
-
-### Impact
-These issues can affect public safety, environmental health, and the overall appearance of the urban landscape. Addressing them promptly will improve the quality of life for residents and visitors.
-"""
-
-    return analysis
 
 
 if __name__ == '__main__':

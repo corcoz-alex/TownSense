@@ -221,6 +221,9 @@ def show_detection():
                     response.raise_for_status()
                     data = response.json()
                     model_results = data.get("detected_objects", {})
+                    
+                    # Save model results in session state so the feedback form can access it
+                    st.session_state['model_results'] = model_results
 
                     # Always send to evaluation, regardless of whether local models detected anything
                     eval_result = send_to_evaluation(model_results, data.get('image'))
@@ -275,10 +278,48 @@ def show_detection():
     add_vertical_space(3)
 
     if st.session_state.get('show_report_button') and st.session_state.get('uploaded_file'):
-        col1, col2, col3 = st.columns([1.316,1,1])
+        col1, col2, col3 = st.columns([1.316, 1, 1])
         with col2:
             with stylable_container(key="report_button", css_styles=purple_button_style):
                 if st.button("Send Report"):
                     display_report_form(st.session_state['uploaded_file'])
 
+    # Feedback form
+    if st.session_state.get('uploaded_file') and st.session_state.get('model_results'):
+        st.markdown("### 📝 Feedback on AI Detection")
+        st.markdown("Help us improve by providing feedback on the AI's performance.")
+
+        feedback_correct = st.radio(
+            "Did the AI detect the issues correctly?",
+            options=["Yes", "No"],
+            key="feedback_correct"
+        )
+
+        feedback_comments = st.text_area(
+            "What was wrong or could be improved? (Optional)",
+            key="feedback_comments"
+        )
+
+        if st.button("Submit Feedback"):
+            with st.spinner("Submitting feedback..."):
+                feedback_data = {
+                    "correct": feedback_correct,
+                    "comments": feedback_comments,
+                    "detections": st.session_state.get('model_results'),
+                    "username": st.session_state.get("username", "anonymous")
+                }
+                try:
+                    response = requests.post(
+                        "http://localhost:5000/submit_feedback",
+                        json=feedback_data,
+                        timeout=10
+                    )
+                    if response.status_code == 200:
+                        st.success("✅ Feedback submitted successfully. Thank you!")
+                    else:
+                        st.error(f"❌ Failed to submit feedback: {response.text}")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+
 #viespa
+
