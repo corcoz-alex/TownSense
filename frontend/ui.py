@@ -101,6 +101,6 @@ elif page == "Contact":
 elif page == "Account":
     pg.show_account()
 else:
-    page = pg.account
-    pg.show_account()
+    page = "Homepage"
+    pg.show_home()
 

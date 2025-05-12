@@ -230,39 +230,20 @@ def show_detection():
                     
                     # Clear the overlay once processing is complete
                     overlay_placeholder.empty()
-                    
-                    with results_container:
 
-                        
-                        if eval_result.get("status") != "error" and "evaluation" in eval_result:
-                            with stylable_container(
-                                key="ai_evaluation_container",
-                                css_styles="""
-                                div {
-                                    background-color: #f8f9fa;
-                                    border-left: 4px solid #775cff;
-                                    padding: 20px;
-                                    border-radius: 4px;
-                                    margin: 20px 0;
-                                }
-                                """
-                            ):
-                                ai_provider = "GitHub GPT-4.1" if "note" not in eval_result else "Local AI"
-                                st.markdown(f"### 🤖 AI Evaluation ({ai_provider})")
-                                st.markdown(eval_result["evaluation"])
+                    # Single-Level Container for AI Evaluation
+                    st.markdown("### 🤖 AI Evaluation")
+                    if eval_result.get("status") != "error" and "evaluation" in eval_result:
+                        ai_provider = "GitHub GPT-4.1" if "note" not in eval_result else "Local AI"
+                        st.markdown(f"**Provider:** {ai_provider}")
+                        st.markdown(eval_result["evaluation"])
 
-                                # Display a note if using fallback analysis
-                                if "note" in eval_result:
-                                    st.info(eval_result["note"])
-                            
-                            # Note: Removed expanders for marked images as requested
+                        if "note" in eval_result:
+                            st.info(eval_result["note"])
 
-                            # Always enable report button after analysis
-                            st.session_state['show_report_button'] = True
-                        else:
-                            st.warning(f"⚠️ Could not get AI evaluation: {eval_result.get('message', 'Unknown error')}")
-                            st.info("The system will still allow you to submit a report based on the detected issues.")
-                            st.session_state['show_report_button'] = True
+                        st.session_state['show_report_button'] = True
+                    else:
+                        st.warning(f"⚠️ Could not get AI evaluation: {eval_result.get('message', 'Unknown error')}")
 
                     # Save the uploaded file AFTER successful analysis
                     st.session_state['uploaded_file'] = uploaded_file
