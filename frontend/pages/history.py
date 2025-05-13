@@ -46,16 +46,16 @@ def show_history():
     add_vertical_space(2)
 
     # --- Buttons First ---
-    col1, col2, col3 = st.columns([1,3,1])
+    col1, col2, col3 = st.columns([0.1,0.8,0.1])
     with col1:
         with stylable_container("refresh_btn", css_styles=purple_button_style):
-            if st.button("🔄 Refresh"):
+            if st.button("🔄 Refresh", use_container_width=True):
                 st.cache_data.clear()
                 st.session_state["refresh_reports"] = True
                 st.rerun()
     with col3:
         with stylable_container("clear_btn", css_styles=purple_button_style):
-            if st.button("Clear History"):
+            if st.button("Clear History", use_container_width=True):
                 result = clear_user_history(st.session_state["username"])
                 if result.get("status") == "success":
                     with col2:
@@ -84,27 +84,29 @@ def show_history():
         st.info("No reports yet. Start detecting urban problems!")
         return
 
+    col1,col2,col3 = st.columns([1,3,1])
     # --- Render Reports ---
-    for r in reports:
-        image_b64 = r["image"]
-        location = r["location"]
-        details = r["details"]
-        timestamp = format_timestamp_to_ro(r["timestamp"])
+    with col2:
+        for r in reports:
+            image_b64 = r["image"]
+            location = r["location"]
+            details = r["details"]
+            timestamp = format_timestamp_to_ro(r["timestamp"])
 
-        st.markdown(f"""
-        <div style="
-            background-color: #ffffff;
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            padding: 16px;
-            margin-bottom: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-        ">
-            <img src="data:image/png;base64,{image_b64}" style="width: 100%; border-radius: 8px;" />
-            <div style="margin-top: 12px;">
-                <strong>📍 Location:</strong> {location}<br>
-                <strong>📝 Details:</strong> {details}<br>
-                <strong>🕒 Time:</strong> {timestamp}
+            st.markdown(f"""
+            <div style="
+                background-color: #ffffff;
+                border: 1px solid #ccc;
+                border-radius: 10px;
+                padding: 16px;
+                margin-bottom: 20px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            ">
+                <img src="data:image/png;base64,{image_b64}" style="width: 100%; border-radius: 8px;" />
+                <div style="margin-top: 12px;">
+                    <strong>📍 Location:</strong> {location}<br>
+                    <strong>📝 Details:</strong> {details}<br>
+                    <strong>🕒 Time:</strong> {timestamp}
+                </div>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)

@@ -3,20 +3,7 @@ import re
 import requests
 import time
 from streamlit_extras.stylable_container import stylable_container
-
-purple_button_style = """
-    button {
-        background-color: #775cff;
-        color: white;
-        border-radius: 6px;
-        padding: 8px 16px;
-        transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
-    }
-    button:hover {
-        background-color: #4f2ef3;
-        color: white;
-    }
-"""
+from frontend.styles import purple_button_style
 
 API_ENDPOINT = "http://localhost:5000/contact"
 
@@ -75,34 +62,21 @@ def show_contact():
                 st.error("Still unable to connect to backend server")
         return
 
-    st.markdown("<h1 style='text-align: center;'>📬 Contact Us</h1>", unsafe_allow_html=True)
 
-    st.markdown("""
-    <p style='text-align: center; font-size: 18px;'>
-    We appreciate your feedback — it helps us improve and make TownSense better for everyone. <br>
-    Do not hesitate to reach out if you have any questions, suggestions, or concerns. <br>
-    Press the button below to send us a message.
-    </p>
-    """, unsafe_allow_html=True)
-
-    col1, col2, col3 = st.columns([2, 1, 2])
+    col1,col2,col3 = st.columns([0.25,0.5,0.25])
     with col2:
-        with stylable_container(
-            key="modified_button",
-            css_styles="""
-                button {
-                background-color: #775cff;
-                color: white;
-                font-weight: bold;
-                border-radius: 6px;
-                padding: 8px 16px;
-                transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
-                }
-                button:hover {
-                background-color: #4f2ef3;
-                color: white;
-                }
-            """,
-        ):
-            if st.button("Contact Us"):
+        st.markdown("<h1 style='text-align: center;'>Contact</h1>", unsafe_allow_html=True)
+
+        st.markdown("""
+        <p style='text-align: center; font-size: 18px;'>
+        We appreciate your feedback — it helps us improve and make TownSense better for everyone. <br>
+        Do not hesitate to reach out if you have any questions, suggestions, or concerns. <br>
+        Press the button below to send us a message.
+        </p>
+        """, unsafe_allow_html=True)
+
+    col1, col2, col3 = st.columns([0.45,0.1,0.45])
+    with col2:
+        with stylable_container(key="contact_button", css_styles=purple_button_style):
+            if st.button("Contact Us", use_container_width=True):
                 show_contact_form()

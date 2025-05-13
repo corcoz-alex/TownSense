@@ -128,20 +128,22 @@ def compress_image(uploaded_file, max_width=300):
 def show_account():
     if "auth_mode" not in st.session_state:
         st.session_state.auth_mode = "login"
+    # --- Initialize Session State from Cookies ---
     if "token" not in st.session_state:
         # Check cookie for persistent login
         if cookies.get("token") and cookies.get("expiry"):
             expiry = datetime.fromisoformat(cookies.get("expiry"))
-            if expiry > datetime.now():
+            if expiry > datetime.now(timezone.utc):
                 st.session_state.token = cookies.get("token")
                 st.session_state.username = cookies.get("username", "User")
                 st.session_state.bio = cookies.get("bio", "")
                 st.session_state.profile_picture = cookies.get("profile_picture", "")
                 st.session_state.remember_me = True
             else:
-                cookies["token"] = ""
-                cookies["username"] = ""
-                cookies["expiry"] = ""
+                # Token expired, clear cookies
+                cookies.pop("token", None)
+                cookies.pop("username", None)
+                cookies.pop("expiry", None)
                 cookies.save()
                 st.session_state.token = None
         else:
@@ -236,12 +238,12 @@ def show_account():
         with col1:
             with stylable_container("logout_button", css_styles=purple_button_style):
                 if st.button("Logout"):
-                    cookies["token"] = ""
-                    cookies["username"] = ""
+                    cookies.pop("token", None)
+                    cookies.pop("username", None)
+                    cookies.pop("expiry", None)
                     cookies.save()
                     st.session_state.clear()
                     st.rerun()
-
     else:
         if st.session_state.auth_mode == "login":
             col1, col2, col3 = st.columns([1, 2, 1])

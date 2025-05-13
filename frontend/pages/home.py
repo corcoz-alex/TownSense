@@ -4,6 +4,7 @@ import base64
 from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit.components.v1 import html
 
+
 def show_home():
     try:
         webm_path = os.path.join(os.path.dirname(__file__), "..", "assets", "logo.webm")
@@ -12,7 +13,7 @@ def show_home():
 
         st.markdown(f"""
             <div style="text-align: center;">
-                <video width="650" autoplay loop muted playsinline>
+                <video width="750" autoplay loop muted playsinline>
                     <source src="data:video/webm;base64,{base64_webm}" type="video/webm">
                     Your browser does not support the video tag.
                 </video>
@@ -54,39 +55,59 @@ def show_home():
         Revolutionize how cities stay clean, safe, and efficient in a modern and fun way.
       </p>
     </div>
-    """, height=300)
+    """, height=200)
 
-    html("""
-    <div style="width: 100%; overflow: hidden; padding: 10px 0;">
-      <div style="
-          display: flex;
-          width: max-content;
-          animation: scrollLoop 30s linear infinite;
-      ">
+    assets_path = os.path.join(os.path.dirname(__file__), "..", "assets")
 
-        <!-- looped track -->
-        <div style="display: flex;">
-          <img src="https://placehold.co/400x250/775cff/fff?text=Urban+1" style="width:400px; margin-right:30px; border-radius: 12px;" />
-          <img src="https://placehold.co/400x250/4f2ef3/fff?text=Urban+2" style="width:400px; margin-right:30px; border-radius: 12px;" />
-          <img src="https://placehold.co/400x250/362ce1/fff?text=Urban+3" style="width:400px; margin-right:30px; border-radius: 12px;" />
+    image1_path = os.path.join(assets_path, "urban1.png")
+    image2_path = os.path.join(assets_path, "urban2.png")
+    image3_path = os.path.join(assets_path, "urban3.png")
+
+    with open(image1_path, "rb") as img_file:
+        img1_base64 = base64.b64encode(img_file.read()).decode("utf-8")
+
+    with open(image2_path, "rb") as img_file:
+        img2_base64 = base64.b64encode(img_file.read()).decode("utf-8")
+
+    with open(image3_path, "rb") as img_file:
+        img3_base64 = base64.b64encode(img_file.read()).decode("utf-8")
+
+    html(f"""
+        <div style="width: 100%; overflow: hidden; padding: 10px 0; position: relative; background-color: #f5f5f5;">
+          <div class="scroll-container" style="
+              display: flex;
+              width: fit-content;
+              animation: scrollLoop 30s linear infinite;
+          ">
+
+            <!-- First track of images -->
+            <div style="display: flex;">
+              <img src="data:image/png;base64,{img1_base64}" style="width:400px; margin-right:30px; border-radius: 12px;" />
+              <img src="data:image/png;base64,{img2_base64}" style="width:400px; margin-right:30px; border-radius: 12px;" />
+              <img src="data:image/png;base64,{img3_base64}" style="width:400px; margin-right:30px; border-radius: 12px;" />
+            </div>
+
+            <!-- Duplicate track for seamless scrolling -->
+            <div style="display: flex;">
+              <img src="data:image/png;base64,{img1_base64}" style="width:400px; margin-right:30px; border-radius: 12px;" />
+              <img src="data:image/png;base64,{img2_base64}" style="width:400px; margin-right:30px; border-radius: 12px;" />
+              <img src="data:image/png;base64,{img3_base64}" style="width:400px; margin-right:30px; border-radius: 12px;" />
+            </div>
+
+          </div>
         </div>
 
-        <div style="display: flex;">
-          <img src="https://placehold.co/400x250/775cff/fff?text=Urban+1" style="width:400px; margin-right:30px; border-radius: 12px;" />
-          <img src="https://placehold.co/400x250/4f2ef3/fff?text=Urban+2" style="width:400px; margin-right:30px; border-radius: 12px;" />
-          <img src="https://placehold.co/400x250/362ce1/fff?text=Urban+3" style="width:400px; margin-right:30px; border-radius: 12px;" />
-        </div>
-
-      </div>
-    </div>
-
-    <style>
-    @keyframes scrollLoop {
-      0%   { transform: translateX(0%); }
-      100% { transform: translateX(-50%); }
-    }
-    </style>
-    """, height=300)
+        <style>
+        @keyframes scrollLoop {{
+  0% {{ transform: translateX(0); }}
+  100% {{ transform: translateX(-50%); }}
+}}
+.scroll-container {{
+  display: flex;
+  animation: scrollLoop 30s linear infinite;
+}}
+        </style>
+        """, height=300)
 
     add_vertical_space(2)
 

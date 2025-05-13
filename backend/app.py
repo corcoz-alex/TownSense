@@ -8,7 +8,6 @@ import datetime
 import logging
 import base64
 import numpy as np
-import json
 from dotenv import load_dotenv
 from email_handler import send_email
 from ultralytics import YOLO
@@ -45,9 +44,9 @@ logging.getLogger("pymongo").setLevel(logging.ERROR)  # Disable Mongo spam
 
 # Load multiple YOLO models
 models = {
-#    "cigarettes": YOLO("models/roboflow_cig.pt"),
+    #    "cigarettes": YOLO("models/roboflow_cig.pt"),
     "potholes": YOLO("backend/models/roboflow_potholes.pt"),
-#    "waste": YOLO("models/waste.pt"),
+    #    "waste": YOLO("models/waste.pt"),
     "garbage_detection": YOLO("backend/models/garbage_detector.pt"),
 }
 
@@ -60,31 +59,34 @@ try:
 except Exception as e:
     app.logger.exception("Error during model warmup")
 
+
 # Function to resize large images
 def resize_image(image, max_dimension=1280):
     """Resize an image if it exceeds the maximum dimension while preserving aspect ratio."""
     width, height = image.size
-    
+
     # If the image is already smaller than the max dimension, return it as is
     if width <= max_dimension and height <= max_dimension:
         return image
-        
+
     # Calculate the resize factor to maintain aspect ratio
     if width > height:
         resize_factor = max_dimension / width
     else:
         resize_factor = max_dimension / height
-        
+
     new_width = int(width * resize_factor)
     new_height = int(height * resize_factor)
-    
+
     app.logger.info(f"Resizing image from {width}x{height} to {new_width}x{new_height}")
     return image.resize((new_width, new_height), Image.LANCZOS)
+
 
 # Add a simple health check endpoint
 @app.route('/', methods=['GET'])
 def health_check():
     return jsonify({"status": "ok", "message": "Backend server is running"})
+
 
 @app.route('/upload', methods=['POST'])
 def upload_image():
@@ -100,10 +102,10 @@ def upload_image():
 
         img_bytes = file.read()
         image = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        
+
         # Resize large images before processing
         image = resize_image(image)
-        
+
         annotated = np.array(image)  # Convert to NumPy for OpenCV
 
         combined_results = {}
@@ -143,6 +145,7 @@ def upload_image():
         app.logger.exception("Detection failed")
         return jsonify({"error": f"Detection failed: {str(e)}"}), 500
 
+
 @app.route("/send_email", methods=["POST"])
 def handle_send_email():
     try:
@@ -160,12 +163,20 @@ def handle_send_email():
         if save_result["status"] != "success":
             return jsonify(save_result), 500
 
-        file.stream.seek(0)
-        result = send_email(location, details, file.read(), file.filename, file.content_type)
-        return jsonify(result)
+        # Need to reset file pointer position after reading above
+        file.seek(0)
+
+        email_result = send_email(location, details, file.read(), file.filename, file.content_type)
+        if email_result["status"] != "success":
+            app.logger.warning(f"Email sending failed: {email_result['message']}")
+            return jsonify(email_result), 500
+
+        # Add return statement to fix the error
+        return jsonify({"status": "success", "message": "Report submitted successfully"})
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/contact", methods=["POST"])
 def contact():
@@ -180,6 +191,7 @@ def contact():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 # JWT helper
 def generate_token(user_id):
     payload = {
@@ -189,6 +201,7 @@ def generate_token(user_id):
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
     return token
 
+
 @app.route("/register", methods=["POST"])
 def register():
     data = request.json
@@ -197,6 +210,7 @@ def register():
     password = data.get("password")
     result = register_user(email, username, password)
     return jsonify(result)
+
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -216,12 +230,14 @@ def login():
         })
     return jsonify(result)
 
+
 @app.route("/request-reset-code", methods=["POST"])
 def request_reset_code():
     data = request.json
     email = data.get("email")
     result = request_password_reset_code(email)
     return jsonify(result)
+
 
 @app.route("/reset-password", methods=["POST"])
 def reset_password_route():
@@ -231,6 +247,7 @@ def reset_password_route():
     new_password = data.get("new_password")
     result = verify_reset_code_and_update_password(email, code, new_password)
     return jsonify(result)
+
 
 @app.route("/update_profile", methods=["POST"])
 def update_profile():
@@ -276,6 +293,7 @@ def update_profile():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route("/get_reports", methods=["POST"])
 def get_reports():
     try:
@@ -290,6 +308,7 @@ def get_reports():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
 @app.route("/clear_reports", methods=["POST"])
 def clear_reports():
     try:
@@ -299,10 +318,38 @@ def clear_reports():
             return jsonify({"status": "error", "message": "Missing username"}), 400
 
         from db import reports_collection
-        result = reports_collection.delete_many({"username": username})
-        return jsonify({"status": "success", "deleted": result.deleted_count})
+        # Instead of deleting, mark reports as not visible
+        result = reports_collection.update_many(
+            {"username": username},
+            {"$set": {"visible": False}}
+        )
+
+        return jsonify({
+            "status": "success",
+            "hidden": result.modified_count,
+            "message": f"{result.modified_count} reports have been hidden from your history."
+        })
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/admin/all_reports", methods=["POST"])
+def admin_get_all_reports():
+    """Admin endpoint to access all reports including hidden ones"""
+    try:
+        data = request.json
+        admin_key = data.get("admin_key")
+        username = data.get("username")  # Optional filter
+        date_from = data.get("date_from")
+        date_to = data.get("date_to")
+
+        from report_handler import get_all_reports
+        result = get_all_reports(admin_key, username, date_from, date_to)
+        return jsonify(result)
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 
 @app.route("/evaluate", methods=["POST"])
 def evaluate_image():
@@ -313,35 +360,32 @@ def evaluate_image():
 
         if not base64_image:
             return jsonify({"status": "error", "message": "Missing image data"}), 400
-            
+
         # Always try to use GitHub AI first, even if no detections from local models
         try:
             github_ai = GitHubAIClient()
             result = github_ai.generate_interpretation(detections, base64_image)
-            
+
             if result["status"] == "success":
                 # Create a response that includes any marked image
                 response = {
                     "status": "success",
                     "evaluation": result["evaluation"]
                 }
-                
+
                 # Include marked image if available
                 if "marked_image" in result:
                     response["marked_image"] = result["marked_image"]
-                
+
                 return jsonify(response)
             else:
                 app.logger.warning(f"GitHub AI failed: {result.get('message')}. Using fallback analysis.")
         except Exception as e:
             app.logger.exception(f"Error using GitHub AI: {str(e)}. Using fallback analysis.")
 
-        # Fallback to local analysis if GitHub AI fails
-        analysis = analyze_urban_issues(detections)
-        
         return jsonify({
             "status": "success",
-            "evaluation": analysis,
+            "evaluation": "analysis:",
             "note": "This analysis was generated using a local fallback system as the advanced AI analysis service was unavailable."
         })
 
@@ -351,6 +395,7 @@ def evaluate_image():
             "status": "error",
             "message": f"Evaluation failed: {str(e)}"
         }), 500
+
 
 @app.route("/submit_feedback", methods=["POST"])
 def submit_feedback():
@@ -373,7 +418,7 @@ def submit_feedback():
             "correct": correct,
             "comments": comments,
             "detections": detections,
-            "timestamp": datetime.datetime.utcnow().isoformat()
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
         }
 
         from db import feedback_collection  # Assuming a feedback collection exists
@@ -387,7 +432,6 @@ def submit_feedback():
     except Exception as e:
         app.logger.exception("Error handling feedback submission")
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 
 if __name__ == '__main__':

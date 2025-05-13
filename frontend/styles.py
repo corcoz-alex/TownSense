@@ -1,32 +1,30 @@
+# Define styles for buttons and other elements
+
+# Purple button style
 purple_button_style = """
-    button {
-        background-color: #775cff;
-        color: white;
-        border-radius: 6px;
-        padding: 8px 16px;
-        transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
-    }
-    button:hover {
-        background-color: #4f2ef3;
-        color: white;
-    }
-    button:active {
-        background-color: #4f2ef3;
+button {
+    background-color: rgb(119, 92, 255) !important;
+    color: white !important;
+    border-radius: 4px !important;
+    padding: 0.5rem 1rem !important;
+    font-weight: 600 !important;
+    border: none !important;
+    transition: all 0.2s ease !important;
 }
-    button[data-testid="stBaseButton-secondary"] {
-    border: 0px solid transparent;
+button:hover {
+    background-color: rgb(97, 73, 226) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 10px rgba(119, 92, 255, 0.4) !important;
 }
+button:active {
+    transform: translateY(0) !important;
+}
+"""
 
-button[data-testid="stBaseButton-secondary"]:hover {
-    border: 0px solid transparent !important;
-}
-
-button[data-testid="stBaseButton-secondaryFormSubmit"] {
-    border: 0px solid transparent;
-}
-
-button[data-testid="stBaseButton-secondaryFormSubmit"]:hover {
-    border: 0px solid transparent !important;
+# Radio button style
+radio_button_style = """
+.st-dy {
+    background-color: #775cff;  /* Default background */
 }
 """
 
@@ -43,3 +41,4 @@ details:hover summary div[data-testid="stMarkdownContainer"] p {
     transition: color 0.5s ease-in-out;
 }
 """
+

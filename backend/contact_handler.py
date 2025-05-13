@@ -13,7 +13,7 @@ def handle_contact_submission(data):
         return {"status": "error", "message": "Message must be at least 50 characters."}
 
     # Forward to external webhook
-    webhook_url = os.environ.get("CONTACT_WEBHOOK_URL")
+    webhook_url = os.environ.get("CONTACT_WEBHOOK_URL") # Dummy webhook
     if not webhook_url:
         return {"status": "error", "message": "Webhook URL not configured."}
 
