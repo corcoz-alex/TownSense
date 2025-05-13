@@ -4,7 +4,7 @@ import time
 from PIL import Image
 from streamlit_extras.add_vertical_space import add_vertical_space
 from streamlit_extras.stylable_container import stylable_container
-from frontend.styles import purple_button_style, radio_button_style
+from frontend.styles import purple_button_style, radio_button_style, hover_text_purple
 from streamlit_folium import st_folium
 import folium
 from geopy.geocoders import Nominatim
@@ -223,6 +223,8 @@ def show_detection():
 
             # Process the image
             results_container = st.container()
+            
+            # Create the overlay container for the loading effect
             overlay_placeholder = st.empty()
 
             # Show loading overlay
@@ -302,55 +304,59 @@ def show_detection():
                     st.session_state['dialog_open'] = True
                     display_report_form(st.session_state['uploaded_file'])
 
-    # Show feedback form if results are available
-    col1, col2, col3 = st.columns([0.25, 0.5, 0.25])
+    # Feedback form
+    col1,col2,col3 = st.columns([0.25,0.5,0.25])
     with col2:
         if st.session_state.get('uploaded_file') and st.session_state.get('model_results'):
-            with st.form("feedback_form"):
-                # Radio Button
-                with stylable_container(key="feedback_radio_button", css_styles=radio_button_style):
-                    feedback_correct = st.radio(
-                        "Did the AI detect the issues correctly?",
-                        options=["Yes", "No"],
-                        key="feedback_correct"
-                    )
+            st.markdown("### 📝 Feedback on AI Detection")
+            st.markdown("Help us improve by providing feedback on the AI's performance.")
+            with stylable_container(key="hover_feedback",css_styles=hover_text_purple)
+                with st.expander("What does your feedback help with?", expanded=False):
+                    st.markdown("""
+                    Your feedback directly helps our AI models learn and improve:
+                    - We use it to adjust detection sensitivity for different urban problems
+                    - Comments about missed issues help us create better training data
+                    - Regular feedback helps us measure model performance over time
+                    """)
 
-                # Text Area
-                feedback_comments = st.text_area(
-                    "What was wrong or could be improved? (Optional)",
-                    key="feedback_comments",
-                    height=120,
-                    placeholder="Enter your feedback here...",
-                    help="Provide any additional details about the AI's performance.",
+            with stylable_container(key="feedback_radio_btn",css_styles=radio_button_style):
+                feedback_correct = st.radio(
+                    "Did the AI detect the issues correctly?",
+                    options=["Yes", "No"],
+                    key="feedback_correct"
                 )
 
-                # Submit Button
-                with stylable_container("feedback_button", css_styles=purple_button_style):
-                    submitted = st.form_submit_button("Submit Feedback")
+            feedback_comments = st.text_area(
+                "What was wrong or could be improved? (Optional)",
+                key="feedback_comments"
+            )
 
-                if submitted:
-                    with st.spinner("Submitting feedback..."):
-                        feedback_data = {
-                            "correct": feedback_correct,
-                            "comments": feedback_comments,
-                            "detections": st.session_state.get('model_results'),
-                            "username": st.session_state.get("username", "anonymous")
-                        }
+        with stylable_container("feedback_button", css_styles=purple_button_style):
+            submit_feedback = st.button("Submit Feedback")
 
-                        try:
-                            response = requests.post(
-                                "http://localhost:5000/submit_feedback",
-                                json=feedback_data,
-                                timeout=10
-                            )
-                            if response.status_code == 200:
-                                st.success("✅ Feedback submitted successfully. Thank you!")
-                            else:
-                                st.error(f"❌ Failed to submit feedback: {response.text}")
-                        except Exception as e:
-                            st.error(f"❌ Error: {str(e)}")
+        if submit_feedback:
+            with st.spinner("Submitting feedback..."):
+                feedback_data = {
+                    "correct": feedback_correct,
+                    "comments": feedback_comments,
+                    "detections": st.session_state.get('model_results'),
+                    "username": st.session_state.get("username", "anonymous")
+                }
+                try:
+                    response = requests.post(
+                        "http://localhost:5000/submit_feedback",
+                        json=feedback_data,
+                        timeout=10
+                    )
+                    if response.status_code == 200:
+                        st.success("✅ Feedback submitted successfully. Thank you!")
+                        st.balloons()
+                        # Clear the form
+                        st.session_state.feedback_comments = ""
+                    else:
+                        st.error(f"❌ Failed to submit feedback: {response.text}")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
 
 #viespa
-
-
 

@@ -8,6 +8,7 @@ import datetime
 import logging
 import base64
 import numpy as np
+import json
 from dotenv import load_dotenv
 from email_handler import send_email
 from ultralytics import YOLO
@@ -24,7 +25,7 @@ from auth_handler import (
 )
 
 # Import the GitHub AI client
-from github_ai import GitHubAIClient
+from github_ai import GitHubAIClient, update_model_based_on_feedback
 
 load_dotenv()
 
@@ -163,20 +164,12 @@ def handle_send_email():
         if save_result["status"] != "success":
             return jsonify(save_result), 500
 
-        # Need to reset file pointer position after reading above
-        file.seek(0)
-
-        email_result = send_email(location, details, file.read(), file.filename, file.content_type)
-        if email_result["status"] != "success":
-            app.logger.warning(f"Email sending failed: {email_result['message']}")
-            return jsonify(email_result), 500
-
-        # Add return statement to fix the error
-        return jsonify({"status": "success", "message": "Report submitted successfully"})
+        file.stream.seek(0)
+        result = send_email(location, details, file.read(), file.filename, file.content_type)
+        return jsonify(result)
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 @app.route("/contact", methods=["POST"])
 def contact():
@@ -191,7 +184,6 @@ def contact():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 # JWT helper
 def generate_token(user_id):
     payload = {
@@ -201,7 +193,6 @@ def generate_token(user_id):
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
     return token
 
-
 @app.route("/register", methods=["POST"])
 def register():
     data = request.json
@@ -210,7 +201,6 @@ def register():
     password = data.get("password")
     result = register_user(email, username, password)
     return jsonify(result)
-
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -230,14 +220,12 @@ def login():
         })
     return jsonify(result)
 
-
 @app.route("/request-reset-code", methods=["POST"])
 def request_reset_code():
     data = request.json
     email = data.get("email")
     result = request_password_reset_code(email)
     return jsonify(result)
-
 
 @app.route("/reset-password", methods=["POST"])
 def reset_password_route():
@@ -293,7 +281,6 @@ def update_profile():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route("/get_reports", methods=["POST"])
 def get_reports():
     try:
@@ -307,7 +294,6 @@ def get_reports():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 @app.route("/clear_reports", methods=["POST"])
 def clear_reports():
@@ -350,7 +336,6 @@ def admin_get_all_reports():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 @app.route("/evaluate", methods=["POST"])
 def evaluate_image():
     try:
@@ -360,22 +345,26 @@ def evaluate_image():
 
         if not base64_image:
             return jsonify({"status": "error", "message": "Missing image data"}), 400
-
+            
         # Always try to use GitHub AI first, even if no detections from local models
         try:
+            app.logger.info("Calling GitHub AI for evaluation and marking")
             github_ai = GitHubAIClient()
             result = github_ai.generate_interpretation(detections, base64_image)
-
+            
             if result["status"] == "success":
                 # Create a response that includes any marked image
                 response = {
                     "status": "success",
                     "evaluation": result["evaluation"]
                 }
-
+                
                 # Include marked image if available
                 if "marked_image" in result:
+                    app.logger.info("Marked image received from GitHub AI")
                     response["marked_image"] = result["marked_image"]
+                else:
+                    app.logger.warning("No marked image received from GitHub AI")
 
                 return jsonify(response)
             else:
@@ -396,7 +385,6 @@ def evaluate_image():
             "message": f"Evaluation failed: {str(e)}"
         }), 500
 
-
 @app.route("/submit_feedback", methods=["POST"])
 def submit_feedback():
     try:
@@ -412,7 +400,7 @@ def submit_feedback():
         # Log feedback for now (can be stored in a database or file)
         app.logger.info(f"Feedback received from {username}: Correct={correct}, Comments={comments}")
 
-        # Optionally, save feedback to a database or file
+        # Prepare feedback entry
         feedback_entry = {
             "username": username,
             "correct": correct,
@@ -421,17 +409,19 @@ def submit_feedback():
             "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
         }
 
-        from db import feedback_collection  # Assuming a feedback collection exists
+        # Store in database
         feedback_collection.insert_one(feedback_entry)
 
-        # Optionally, trigger AI model update logic here
-        # Example: update_model_based_on_feedback(feedback_entry)
+        # Use the feedback to update the model behavior
+        update_result = update_model_based_on_feedback(feedback_entry)
+        app.logger.info(f"Model update based on feedback: {update_result}")
 
         return jsonify({"status": "success", "message": "Feedback submitted successfully."})
 
     except Exception as e:
         app.logger.exception("Error handling feedback submission")
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 
 if __name__ == '__main__':

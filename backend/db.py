@@ -31,8 +31,12 @@ all_reports_collection = db["all_reports"]  # New collection that keeps all repo
 # Create indexes for efficiency
 reports_collection.create_index("username")
 reports_collection.create_index("timestamp")
-all_reports_collection.create_index("username")
-all_reports_collection.create_index("timestamp")
-all_reports_collection.create_index("visible")
+
+# Create indexes for the feedback collection
+feedback_collection.create_index("username")
+feedback_collection.create_index("timestamp")
+feedback_collection.create_index("correct")  # For querying by feedback correctness
+feedback_collection.create_index([("timestamp", pymongo.DESCENDING)])  # For recent feedback analysis
 
 print("✅ MongoDB connected to database:", DB_NAME)
+

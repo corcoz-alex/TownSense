@@ -8,6 +8,12 @@ import io
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 from dotenv import load_dotenv
+import math
+from PIL import ImageFilter, ImageEnhance
+
+# Add imports for the feedback handling
+from datetime import datetime, timedelta
+from db import feedback_collection
 
 logger = logging.getLogger(__name__)
 
@@ -392,15 +398,293 @@ class GitHubAIClient:
 
         except Exception as e:
             logger.error(f"Error resizing image: {str(e)}")
-            return base64_image  # Return original if resize fails
+            # Return original image if resizing fails
+            return base64_image
+
+    def _calculate_callout_position(self, center_x, center_y, img_width, img_height, issue_index, total_issues):
+        """
+        Calculate the optimal position for a callout bubble based on the issue position.
+        Positions callouts away from the issue to prevent overlapping.
+        """
+        # Determine which quadrant the issue is in
+        in_right_half = center_x > img_width / 2
+        in_bottom_half = center_y > img_height / 2
+
+        # Calculate distance from edges
+        dist_from_left = center_x
+        dist_from_right = img_width - center_x
+        dist_from_top = center_y
+        dist_from_bottom = img_height - center_y
+
+        # Place callout in the opposite quadrant from issue
+        # This ensures the callout is far from the issue
+        margin = max(img_width, img_height) * 0.05
+        margin = max(margin, 30)  # Minimum margin
+
+        # Offset by issue_index to prevent callouts from overlapping
+        offset_x = (issue_index % 3) * 30
+        offset_y = (issue_index % 3) * 20
+
+        # Place callout in quadrant opposite to where issue is
+        if in_right_half and in_bottom_half:
+            # Issue in bottom-right, place callout in top-left
+            callout_x = margin + offset_x
+            callout_y = margin + offset_y
+        elif in_right_half and not in_bottom_half:
+            # Issue in top-right, place callout in bottom-left
+            callout_x = margin + offset_x
+            callout_y = img_height - margin - offset_y
+        elif not in_right_half and in_bottom_half:
+            # Issue in bottom-left, place callout in top-right
+            callout_x = img_width - margin - offset_x
+            callout_y = margin + offset_y
+        else:
+            # Issue in top-left, place callout in bottom-right
+            callout_x = img_width - margin - offset_x
+            callout_y = img_height - margin - offset_y
+
+        # Create a bent pointer with intermediate points
+        # This makes a smoother curve from callout to issue
+        mid1_x = (2*callout_x + center_x) // 3
+        mid1_y = (2*callout_y + center_y) // 3
+
+        mid2_x = (callout_x + 2*center_x) // 3
+        mid2_y = (callout_y + 2*center_y) // 3
+
+        # Define pointer path with multiple points for a curved line
+        pointer_points = [
+            (int(callout_x), int(callout_y)),
+            (int(mid1_x), int(mid1_y)),
+            (int(mid2_x), int(mid2_y)),
+        ]
+
+        return int(callout_x), int(callout_y), pointer_points
+
+    def _draw_legend(self, draw, legend_items, img_width, img_height, font):
+        """Draw a legend explaining the marked issues at the bottom of the image"""
+        if not legend_items:
+            return
+
+        # Configuration
+        legend_margin = 20
+        item_padding = 10
+        color_box_size = 15
+        line_height = 25
+
+        # Calculate legend position (bottom of image)
+        legend_y = img_height - legend_margin - (line_height * len(legend_items))
+
+        # Draw semi-transparent background for legend
+        padding = 10
+        legend_width = img_width - (legend_margin * 2)
+        legend_height = (line_height * len(legend_items)) + line_height + padding * 2  # Extra for title
+
+        # Draw rounded rectangle background
+        draw.rounded_rectangle(
+            [(legend_margin - padding, legend_y - line_height - padding),
+             (legend_margin + legend_width, legend_y + (line_height * len(legend_items)) + padding)],
+            radius=10,
+            fill=(0, 0, 0, 160)  # Semi-transparent black
+        )
+
+        # Draw legend title
+        title = "Detected Issues:"
+        draw.text((legend_margin, legend_y - line_height), title,
+                 fill=(255, 255, 255, 230), font=font)
+
+        # Draw each legend item
+        current_y = legend_y
+        for issue_type, color in legend_items.items():
+            # Draw color box
+            draw.rectangle(
+                [(legend_margin, current_y),
+                 (legend_margin + color_box_size, current_y + color_box_size)],
+                fill=color, outline=(255, 255, 255, 200), width=1
+            )
+
+            # Draw issue type text
+            text_x = legend_margin + color_box_size + item_padding
+            draw.text((text_x, current_y), issue_type.capitalize(),
+                     fill=(255, 255, 255, 230), font=font)
+
+            # Move to next line
+            current_y += line_height
 
 
 def update_model_based_on_feedback(feedback_entry):
     """Update the AI model or its behavior based on user feedback."""
     try:
-        # Placeholder: Implement logic to update the model or fine-tune it
-        logger.info(f"Updating model based on feedback: {feedback_entry}")
-        # Example: Save feedback to a training dataset or adjust model parameters
+        # Extract key information from feedback
+        is_correct = feedback_entry.get("correct") == "Yes"
+        username = feedback_entry.get("username", "anonymous")
+        comments = feedback_entry.get("comments", "")
+        detections = feedback_entry.get("detections", {})
+        timestamp = feedback_entry.get("timestamp", datetime.utcnow().isoformat())
+
+        # Log detailed feedback information
+        logger.info(f"Processing feedback from {username}: Correct={is_correct}, Comments={comments}")
+
+        # Store enriched feedback data with metadata for analysis
+        enriched_feedback = {
+            "original_feedback": feedback_entry,
+            "metadata": {
+                "processed_at": datetime.utcnow().isoformat(),
+                "detection_count": sum(len(objs) for objs in detections.values()),
+                "has_comments": bool(comments.strip()),
+                "comment_length": len(comments) if comments else 0,
+                "models_used": list(detections.keys())
+            },
+            "analysis": {
+                "feedback_type": "positive" if is_correct else "negative",
+                "requires_attention": not is_correct and bool(comments.strip()),
+                "keywords": extract_keywords_from_comment(comments) if comments else []
+            }
+        }
+
+        # Store the enriched feedback for future analysis
+        feedback_collection.insert_one(enriched_feedback)
+
+        # Calculate and update feedback statistics
+        update_feedback_statistics()
+
+        # Check if model behavior adjustment is needed based on recent feedback
+        if should_adjust_model_behavior():
+            adjust_model_parameters()
+
+        logger.info(f"Feedback processing completed for user {username}")
+        return True
+
     except Exception as e:
         logger.error(f"Error updating model based on feedback: {str(e)}")
+        return False
+
+def extract_keywords_from_comment(comment):
+    """Extract important keywords from feedback comments"""
+    # Simple keyword extraction - in production this could use NLP
+    keywords = []
+    important_terms = [
+        "missed", "wrong", "incorrect", "false", "positive", "negative",
+        "pothole", "garbage", "graffiti", "accurate", "good", "bad",
+        "detection", "slow", "fast", "error"
+    ]
+
+    if comment:
+        comment_lower = comment.lower()
+        for term in important_terms:
+            if term in comment_lower:
+                keywords.append(term)
+
+    return keywords
+
+def update_feedback_statistics():
+    """Update aggregate statistics on feedback for monitoring model performance"""
+    try:
+        # Define time windows for analysis
+        now = datetime.utcnow()
+        last_day = now - timedelta(days=1)
+        last_week = now - timedelta(days=7)
+
+        # Query recent feedback
+        day_feedback = feedback_collection.find({"original_feedback.timestamp": {"$gte": last_day.isoformat()}})
+        week_feedback = feedback_collection.find({"original_feedback.timestamp": {"$gte": last_week.isoformat()}})
+
+        # Calculate statistics
+        day_stats = calculate_feedback_metrics(day_feedback)
+        week_stats = calculate_feedback_metrics(week_feedback)
+
+        # Store statistics in a special document
+        feedback_collection.update_one(
+            {"_id": "statistics"},
+            {"$set": {
+                "last_updated": now.isoformat(),
+                "daily_stats": day_stats,
+                "weekly_stats": week_stats,
+            }},
+            upsert=True
+        )
+
+        logger.info(f"Updated feedback statistics: daily accuracy {day_stats.get('accuracy', 0):.2f}, weekly accuracy {week_stats.get('accuracy', 0):.2f}")
+
+    except Exception as e:
+        logger.error(f"Error updating feedback statistics: {str(e)}")
+
+def calculate_feedback_metrics(feedback_cursor):
+    """Calculate metrics from feedback data"""
+    try:
+        total = 0
+        positive = 0
+        has_comments = 0
+
+        for item in feedback_cursor:
+            total += 1
+            if item.get("analysis", {}).get("feedback_type") == "positive":
+                positive += 1
+            if item.get("metadata", {}).get("has_comments", False):
+                has_comments += 1
+
+        # Avoid division by zero
+        accuracy = (positive / total) * 100 if total > 0 else 0
+        comment_rate = (has_comments / total) * 100 if total > 0 else 0
+
+        return {
+            "total_feedback": total,
+            "positive_feedback": positive,
+            "accuracy": accuracy,
+            "feedback_with_comments": has_comments,
+            "comment_rate": comment_rate
+        }
+
+    except Exception as e:
+        logger.error(f"Error calculating feedback metrics: {str(e)}")
+        return {"error": str(e)}
+
+def should_adjust_model_behavior():
+    """Determine if model behavior should be adjusted based on feedback trends"""
+    try:
+        # Get statistics document
+        stats = feedback_collection.find_one({"_id": "statistics"})
+        if not stats:
+            return False
+
+        # Check if accuracy has dropped significantly
+        daily_accuracy = stats.get("daily_stats", {}).get("accuracy", 0)
+        weekly_accuracy = stats.get("weekly_stats", {}).get("accuracy", 0)
+
+        # Adjust if daily accuracy is significantly lower than weekly average
+        return daily_accuracy < (weekly_accuracy * 0.8) and stats.get("daily_stats", {}).get("total_feedback", 0) >= 5
+
+    except Exception as e:
+        logger.error(f"Error in should_adjust_model_behavior: {str(e)}")
+        return False
+
+def adjust_model_parameters():
+    """Adjust model parameters based on feedback trends"""
+    try:
+        # Retrieve recent negative feedback for analysis
+        recent_negative = list(feedback_collection.find({
+            "analysis.feedback_type": "negative",
+            "original_feedback.timestamp": {"$gte": (datetime.utcnow() - timedelta(days=2)).isoformat()}
+        }))
+
+        # In a real system, we would analyze patterns in negative feedback
+        # and adjust model parameters accordingly
+
+        # Log that an adjustment would be happening
+        logger.info(f"Model behavior adjustment triggered based on {len(recent_negative)} recent negative feedback items")
+
+        # For demonstration, we're just recording that an adjustment was needed
+        feedback_collection.update_one(
+            {"_id": "model_adjustments"},
+            {"$push": {
+                "adjustments": {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "trigger": "feedback_trend",
+                    "negative_count": len(recent_negative)
+                }
+            }},
+            upsert=True
+        )
+
+    except Exception as e:
+        logger.error(f"Error adjusting model parameters: {str(e)}")
 
