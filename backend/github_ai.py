@@ -12,7 +12,8 @@ import math
 from PIL import ImageFilter, ImageEnhance
 
 # Add imports for the feedback handling
-from datetime import datetime, timedelta
+import datetime
+from datetime import datetime, timedelta, timezone
 from db import feedback_collection
 
 logger = logging.getLogger(__name__)
@@ -519,7 +520,7 @@ def update_model_based_on_feedback(feedback_entry):
         username = feedback_entry.get("username", "anonymous")
         comments = feedback_entry.get("comments", "")
         detections = feedback_entry.get("detections", {})
-        timestamp = feedback_entry.get("timestamp", datetime.utcnow().isoformat())
+        timestamp = feedback_entry.get("timestamp", datetime.now(timezone.utc).isoformat())
 
         # Log detailed feedback information
         logger.info(f"Processing feedback from {username}: Correct={is_correct}, Comments={comments}")
@@ -528,7 +529,7 @@ def update_model_based_on_feedback(feedback_entry):
         enriched_feedback = {
             "original_feedback": feedback_entry,
             "metadata": {
-                "processed_at": datetime.utcnow().isoformat(),
+                "processed_at": datetime.now(timezone.utc).isoformat(),
                 "detection_count": sum(len(objs) for objs in detections.values()),
                 "has_comments": bool(comments.strip()),
                 "comment_length": len(comments) if comments else 0,
@@ -580,7 +581,7 @@ def update_feedback_statistics():
     """Update aggregate statistics on feedback for monitoring model performance"""
     try:
         # Define time windows for analysis
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         last_day = now - timedelta(days=1)
         last_week = now - timedelta(days=7)
 
@@ -663,7 +664,7 @@ def adjust_model_parameters():
         # Retrieve recent negative feedback for analysis
         recent_negative = list(feedback_collection.find({
             "analysis.feedback_type": "negative",
-            "original_feedback.timestamp": {"$gte": (datetime.utcnow() - timedelta(days=2)).isoformat()}
+            "original_feedback.timestamp": {"$gte": (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()}
         }))
 
         # In a real system, we would analyze patterns in negative feedback
@@ -677,7 +678,7 @@ def adjust_model_parameters():
             {"_id": "model_adjustments"},
             {"$push": {
                 "adjustments": {
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "trigger": "feedback_trend",
                     "negative_count": len(recent_negative)
                 }

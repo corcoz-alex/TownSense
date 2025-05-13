@@ -5,6 +5,7 @@ import io
 import jwt
 import os
 import datetime
+from datetime import datetime, timezone, timedelta
 import logging
 import base64
 import numpy as np
@@ -15,7 +16,7 @@ from ultralytics import YOLO
 from contact_handler import handle_contact_submission
 from report_handler import get_reports_by_username
 from visuals import draw_custom_boxes
-from db import users_collection
+from db import users_collection, feedback_collection
 from report_handler import save_user_report
 from auth_handler import (
     register_user,
@@ -188,7 +189,7 @@ def contact():
 def generate_token(user_id):
     payload = {
         "user_id": user_id,
-        "exp": datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=JWT_EXPIRY_MINUTES)
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=JWT_EXPIRY_MINUTES)
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
     return token
@@ -406,7 +407,7 @@ def submit_feedback():
             "correct": correct,
             "comments": comments,
             "detections": detections,
-            "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
         # Store in database

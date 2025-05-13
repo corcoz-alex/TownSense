@@ -305,12 +305,25 @@ def show_detection():
                     display_report_form(st.session_state['uploaded_file'])
 
     # Feedback form
-    col1,col2,col3 = st.columns([0.25,0.5,0.25])
+    if "feedback_comments" not in st.session_state:
+        st.session_state.feedback_comments = ""
+
+    if "feedback_correct" not in st.session_state:
+        st.session_state.feedback_correct = "Yes"
+
+    # Check if we need to reset feedback form
+    if st.session_state.get('reset_feedback_form', False):
+        st.session_state.feedback_comments = ""
+        st.session_state.feedback_correct = "Yes"
+        st.session_state.pop('reset_feedback_form', None)
+
+    col1, col2, col3 = st.columns([0.25, 0.5, 0.25])
     with col2:
         if st.session_state.get('uploaded_file') and st.session_state.get('model_results'):
             st.markdown("### 📝 Feedback on AI Detection")
             st.markdown("Help us improve by providing feedback on the AI's performance.")
-            with stylable_container(key="hover_feedback",css_styles=hover_text_purple)
+
+            with stylable_container(key="hover_feedback", css_styles=hover_text_purple):
                 with st.expander("What does your feedback help with?", expanded=False):
                     st.markdown("""
                     Your feedback directly helps our AI models learn and improve:
@@ -319,44 +332,55 @@ def show_detection():
                     - Regular feedback helps us measure model performance over time
                     """)
 
-            with stylable_container(key="feedback_radio_btn",css_styles=radio_button_style):
-                feedback_correct = st.radio(
-                    "Did the AI detect the issues correctly?",
-                    options=["Yes", "No"],
-                    key="feedback_correct"
+            # Use a form for controlled submission
+            with st.form(key="feedback_form"):
+                with stylable_container(key="feedback_radio_btn", css_styles=radio_button_style):
+                    feedback_correct = st.radio(
+                        "Did the AI detect the issues correctly?",
+                        options=["Yes", "No"],
+                        key="feedback_correct"
+                    )
+
+                # Text area for comments
+                feedback_comments = st.text_area(
+                    "What was wrong or could be improved? (Optional)",
+                    value=st.session_state.feedback_comments,
+                    key="feedback_comments"
                 )
 
-            feedback_comments = st.text_area(
-                "What was wrong or could be improved? (Optional)",
-                key="feedback_comments"
-            )
+                # Submit button
+                with stylable_container("feedback_button", css_styles=purple_button_style):
+                    submit_feedback = st.form_submit_button("Submit Feedback")
 
-        with stylable_container("feedback_button", css_styles=purple_button_style):
-            submit_feedback = st.button("Submit Feedback")
+            # Form submission logic
+            if submit_feedback:
+                with st.spinner("Submitting feedback..."):
+                    feedback_data = {
+                        "correct": st.session_state.feedback_correct,
+                        "comments": st.session_state.feedback_comments,
+                        "detections": st.session_state.get('model_results'),
+                        "username": st.session_state.get("username", "anonymous")
+                    }
 
-        if submit_feedback:
-            with st.spinner("Submitting feedback..."):
-                feedback_data = {
-                    "correct": feedback_correct,
-                    "comments": feedback_comments,
-                    "detections": st.session_state.get('model_results'),
-                    "username": st.session_state.get("username", "anonymous")
-                }
-                try:
-                    response = requests.post(
-                        "http://localhost:5000/submit_feedback",
-                        json=feedback_data,
-                        timeout=10
-                    )
-                    if response.status_code == 200:
-                        st.success("✅ Feedback submitted successfully. Thank you!")
-                        st.balloons()
-                        # Clear the form
-                        st.session_state.feedback_comments = ""
-                    else:
-                        st.error(f"❌ Failed to submit feedback: {response.text}")
-                except Exception as e:
-                    st.error(f"❌ Error: {str(e)}")
+                    try:
+                        response = requests.post(
+                            "http://localhost:5000/submit_feedback",
+                            json=feedback_data,
+                            timeout=10
+                        )
 
+                        if response.status_code == 200:
+                            st.success("✅ Feedback submitted successfully. Thank you!")
+                            st.balloons()
+
+                            # Set a flag to reset the form on next rerun
+                            st.session_state.reset_feedback_form = True
+                            st.balloons()
+                            # Trigger a rerun to reset the form
+                        else:
+                            st.error(f"❌ Failed to submit feedback: {response.text}")
+
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
 #viespa
 
