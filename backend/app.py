@@ -50,6 +50,7 @@ models = {
     "potholes": YOLO("backend/models/roboflow_potholes.pt"),
     #    "waste": YOLO("models/waste.pt"),
     "garbage_detection": YOLO("backend/models/garbage_detector.pt"),
+    "vandalism": YOLO("backend/models/rofoblow-graffity.pt")
 }
 
 # Warm up models once on startup
