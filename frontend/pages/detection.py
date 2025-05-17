@@ -11,7 +11,7 @@ from geopy.geocoders import Nominatim
 
 
 # --- Helpers ---
-def send_report_to_backend(location, details, uploaded_file, max_retries=3):
+def send_report_to_backend(location, details, evaluation, uploaded_file, max_retries=3):
     retry_delay = 2  # Start with a 2-second delay
     attempt = 0
 
@@ -23,6 +23,7 @@ def send_report_to_backend(location, details, uploaded_file, max_retries=3):
             data = {
                 "location": location,
                 "details": details,
+                "evaluation": evaluation,  # Include AI evaluation output here
                 "username": st.session_state.get("username", "anonymous")
             }
             response = requests.post("http://localhost:5000/send_email", data=data, files=files, timeout=10)
@@ -119,7 +120,12 @@ def display_report_form(uploaded_file):
                 st.warning("Please provide at least 20 characters for the details.")
                 return
             with st.spinner("🚀 Submitting your report..."):
-                result = send_report_to_backend(st.session_state.address, st.session_state.details, uploaded_file)
+                result = send_report_to_backend(
+                    st.session_state.address,
+                    st.session_state.details,
+                    st.session_state.evaluation_result.get("evaluation", "No evaluation provided."),
+                    uploaded_file
+                )
                 if result.get("status") == "success":
                     st.success("✅ Report submitted successfully!")
                     st.balloons()

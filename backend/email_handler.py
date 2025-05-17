@@ -21,7 +21,7 @@ def send_email(location, details, image_bytes, image_name, image_type):
             msg["To"] = "alexcorcoz11@gmail.com" # My personal email, replace this with the user email
 
             msg.set_content(f"""
-            New problem reported via TownSense 🏙️
+            New problem reported via TownSense
 
             Location: {location}
             Details:

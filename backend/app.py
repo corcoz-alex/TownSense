@@ -154,19 +154,22 @@ def handle_send_email():
         data = request.form
         location = data.get("location")
         details = data.get("details")
-        username = data.get("username")  # <- NEW!
+        username = data.get("username")
+        evaluation = data.get("evaluation")
         file = request.files.get("image")
 
-        if not all([location, details, file, username]):
+        if not all([location, details, file, username, evaluation]):
             return jsonify({"status": "error", "message": "Missing data"}), 400
 
-        # Save to DB
-        save_result = save_user_report(username, location, details, file.read())
+        # Include evaluation in details stored in DB
+        full_details = f"{details}\n\nAI Analysis:\n{evaluation}"
+
+        save_result = save_user_report(username, location, full_details, file.read())
         if save_result["status"] != "success":
             return jsonify(save_result), 500
 
         file.stream.seek(0)
-        result = send_email(location, details, file.read(), file.filename, file.content_type)
+        result = send_email(location, full_details, file.read(), file.filename, file.content_type)
         return jsonify(result)
 
     except Exception as e:
