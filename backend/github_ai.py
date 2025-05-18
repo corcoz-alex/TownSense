@@ -68,6 +68,10 @@ class GitHubAIClient:
             dict: Response with interpretation of urban issues and optional marked image
         """
         try:
+            # NEW: Fetch recent feedbacks and summarize for the prompt
+            recent_feedbacks = self._get_recent_feedbacks(limit=10)
+            feedback_summary = self._summarize_feedbacks_for_prompt(recent_feedbacks)
+
             # Extract relevant detection information
             detection_summary = self._prepare_detection_summary(detections)
 
@@ -76,10 +80,13 @@ class GitHubAIClient:
                 base64_image = self._ensure_image_size(base64_image)
 
             # Create prompt for GitHub AI with instructions to identify issues regardless of detection results
-            system_message = """You are an urban infrastructure analysis expert. Your task is to:
+            system_message = f"""You are an urban infrastructure analysis expert. Your task is to:
             1. Interpret detection results from pre-trained YOLO models that identify urban issues like potholes, garbage, and other 
             problems in city environments.
             2. Analyze the provided image directly to identify ANY urban issues, even if the detection models didn't find any.
+
+            Before analyzing, consider the following recent user feedback about previous analyses to improve your accuracy:
+            {feedback_summary}
 
             Provide a detailed analysis including:
             1. Summary of detected issues (from both the detection models and your direct image analysis)
@@ -91,13 +98,11 @@ class GitHubAIClient:
             IMPORTANT: Do not write anything else except the analysis. Do not include any other text or explanations.
             Instead of saying BozukYol, say "pothole" in English. Do not use "---" to separate sections.
 
-
             Format your response in Markdown. Format it in such a way that it looks aesthetically pleasing and fits
             well in a minimalistic modern web app design. Do not use tables. Do not state the positions found with YOLO Do not use possessive pronouns such as "my" or "your". Make it seem
             professional and talk directly to the user. For example, do not say "Upon direct inspection of the image, I have identified...". Say
             "Upon direct inspection of the image, the following issues have been identified...".
             """
-
 
             # Prepare user message with detection results
             user_message = f"""Here are the detection results from our urban analysis YOLO AI models:
@@ -113,7 +118,6 @@ class GitHubAIClient:
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message}
             ]
-
 
             # If we have an image, add it to the messages
             if base64_image:
@@ -191,6 +195,35 @@ class GitHubAIClient:
         except Exception as e:
             logger.error(f"Error in generate_interpretation: {str(e)}")
             return {"status": "error", "message": f"Failed to generate interpretation: {str(e)}"}
+
+    def _get_recent_feedbacks(self, limit=10):
+        """Fetch recent feedbacks from the database"""
+        try:
+            # Sort by timestamp descending, get the most recent feedbacks
+            feedbacks = list(feedback_collection.find().sort("timestamp", -1).limit(limit))
+            return feedbacks
+        except Exception as e:
+            logger.error(f"Error fetching recent feedbacks: {str(e)}")
+            return []
+
+    def _summarize_feedbacks_for_prompt(self, feedbacks):
+        """Summarize feedbacks for inclusion in the system prompt"""
+        if not feedbacks:
+            return "No recent feedback available."
+
+        summary_lines = []
+        for fb in feedbacks:
+            correct = fb.get("correct", "Unknown")
+            comments = fb.get("comments", "")
+            # Only include feedback with comments or negative feedback
+            if comments or correct == "No":
+                line = f"- Feedback: {'Correct' if correct == "Yes" else 'Incorrect'}"
+                if comments:
+                    line += f"; Comment: {comments.strip()}"
+                summary_lines.append(line)
+        if not summary_lines:
+            return "No significant feedback to consider."
+        return "\n".join(summary_lines)
 
     def _prepare_detection_summary(self, detections):
         """Format detection results into a readable summary for the AI"""
@@ -688,4 +721,5 @@ def adjust_model_parameters():
 
     except Exception as e:
         logger.error(f"Error adjusting model parameters: {str(e)}")
+
 
